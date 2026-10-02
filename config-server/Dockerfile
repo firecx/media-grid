@@ -6,10 +6,10 @@ WORKDIR /src
 COPY . .
 # Зависимости Maven сохраняются между сборками в кэше
 RUN --mount=type=cache,target=/root/.m2 \
-    mvn -q -B -pl discovery -am -DskipTests package
+    mvn -q -B -pl config-server -am -DskipTests package
 
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
-COPY --from=build /src/discovery/target/discovery.jar app.jar
-EXPOSE 8761
+COPY --from=build /src/config-server/target/config-server.jar app.jar
+EXPOSE 8888
 ENTRYPOINT ["java", "-jar", "app.jar"]

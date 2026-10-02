@@ -4,6 +4,11 @@ server:
 spring:
   application:
     name: discovery
+  cloud:
+    loadbalancer:
+      cache:
+        # Регистр никого не вызывает через балансировщик, кэш ему не нужен
+        enabled: false
 
 eureka:
   instance:

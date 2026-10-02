@@ -1,0 +1,32 @@
+server:
+  port: 8888
+
+spring:
+  application:
+    name: config-server
+  profiles:
+    # Настройки читаются с диска, а не из удалённого хранилища версий
+    active: native
+  cloud:
+    loadbalancer:
+      cache:
+        # Центр конфигурации никого не вызывает через балансировщик, кэш ему не нужен
+        enabled: false
+    config:
+      server:
+        native:
+          # Локально — каталог config/ в корне репозитория, в контейнере — подключённый том
+          search-locations: ${CONFIG_LOCATION:file:./config/}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka}
+  instance:
+    prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

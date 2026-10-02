@@ -1,0 +1,17 @@
+# Общие настройки для всех служб, получающих конфигурацию из центра конфигурации.
+# Настройки отдельной службы кладутся в файл <имя службы>.yml рядом с этим.
+# Пароли сюда не записываются: только подстановки вида ${POSTGRES_PASSWORD},
+# значения которых служба берёт из своих переменных среды.
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka}
+  instance:
+    prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

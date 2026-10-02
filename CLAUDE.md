@@ -6,17 +6,20 @@
 - База данных: образ postgres:18.6-alpine3.24, том подключается к /var/lib/postgresql. Одна база, по одной схеме на службу: auth, media, storage, processing (infra/postgres/init.sql).
 - Шина сообщений: RabbitMQ 4 (выбрана по умолчанию, не обсуждалась отдельно).
 - Файлохранилище: пока локальная файловая система за интерфейсом StorageProvider (save, getReadStream, getDownloadUrl, delete, exists); MinIO отложен. В таблице media_files поля storage_backend и storage_key.
-- Версии проекта 1.2.3: первое число — глобальные релизы (законченное ПО), второе — крупное обновление, возможно с новой службой, третье — мелкие правки и исправления. Сейчас 0.1.0-SNAPSHOT. Версия образа службы равна версии проекта (переменная MEDIAGRID_VERSION). Смена: mvn versions:set -DnewVersion=0.2.0 -DgenerateBackupPoms=false
+- Версии проекта 1.2.3: первое число — глобальные релизы (законченное ПО), второе — крупное обновление, возможно с новой службой, третье — мелкие правки и исправления. Сейчас 0.2.0 (discovery и config-server). Версия образа службы равна версии проекта (переменная MEDIAGRID_VERSION). Смена: mvn versions:set -DnewVersion=0.3.0 -DgenerateBackupPoms=false. При каждой смене версии добавлять запись в CHANGELOG.md (новые сверху, разделы «Добавлено», «Изменено», «Исправлено», «Удалено»).
 - В русском тексте не использовать английские термины.
 
 Состав служб (по ТЗ): discovery (регистр служб), config-server (центр конфигурации), gateway (шлюз), auth-service (авторизация), media-service (метаданные, поиск, теги), storage-service (загрузка и хранение, потоковая передача, ссылки с ограниченным сроком действия), processing-service (транскодирование, превью, очередь), позже веб-интерфейс. Поддержка устойчивости к сбоям, сквозная трассировка, централизованные журналы.
 
 Сделано
-- Корень: pom.xml, docker-compose.yaml (postgres, rabbitmq, discovery), .env.example (с MEDIAGRID_VERSION), .dockerignore, .gitignore, README.md.
+- Корень: pom.xml, docker-compose.yaml (postgres, rabbitmq, discovery, config-server), .env.example (с MEDIAGRID_VERSION), .dockerignore, .gitignore, README.md.
 - common: события FileUploadedEvent и ProcessingCompletedEvent, единый формат ошибки ApiError. Бизнес-логики нет.
-- discovery (Eureka, порт 8761): pom.xml (стартер spring-cloud-starter-netflix-eureka-server), DiscoveryApplication.java, application.yml, Dockerfile. Сборка mvn package проходит, jar запускается, /actuator/health отвечает UP. Сборка образа через docker compose ещё не проверялась.
-- Известная проблема: Dockerfile службы копирует только корневой pom.xml, common и свой модуль. Как только в корневой pom.xml добавится следующий модуль, Maven в образе не найдёт его каталог и сборка упадёт. Решить при добавлении config-server (например, копировать все pom.xml модулей).
+- discovery (Eureka, порт 8761): стартер spring-cloud-starter-netflix-eureka-server. Образ собирается, контейнер здоров.
+- config-server (порт 8888): режим native, читает каталог config/ (локально file:./config/, в контейнере том ./config:/config, переменная CONFIG_LOCATION). Регистрируется в discovery. Образ собирается, контейнер здоров, настройки раздаются (GET /<служба>/default).
+- config/application.yml: общие настройки служб (адрес регистра через EUREKA_URL, prefer-ip-address, открытые точки health и info). Пароли в config/ не хранить, только подстановки ${...} из переменных среды службы.
+- Устройство Dockerfile служб: COPY . . (лишнее отсекает .dockerignore, каталог config/ в образы не попадает), сборка mvn -pl <служба> -am с кэшем BuildKit для ~/.m2, запуск на eclipse-temurin:21-jre-alpine. Проверка готовности в docker-compose через wget на /actuator/health.
+- Кэш балансировщика нагрузки отключён в discovery и config-server (они никого не вызывают). Службам, которые вызывают друг друга через балансировщик, подключать зависимость caffeine.
 
-Порядок дальше: config-server (конфигурация из каталога config/ в этом же репозитории), gateway (пока без проверки токенов), auth-service, media-service, storage-service, processing-service, веб-интерфейс.
+Порядок дальше: gateway (пока без проверки токенов), auth-service, media-service, storage-service, processing-service, веб-интерфейс. Прикладные службы получают настройки через spring.config.import: configserver:http://config-server:8888.
 
 Правило работы: когда отправляешь файл, указывай полный путь от корня проекта и пометку «новый» или «изменён».
