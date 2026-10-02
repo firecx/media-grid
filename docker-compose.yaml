@@ -34,6 +34,21 @@ services:
       timeout: 5s
       retries: 10
 
+  discovery:
+    build:
+      context: .                          # корень репозитория: нужен модуль common
+      dockerfile: discovery/Dockerfile
+    image: mediagrid/discovery:${MEDIAGRID_VERSION:-0.1.0-SNAPSHOT}
+    restart: unless-stopped
+    ports:
+      - "8761:8761"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8761/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
   # Службы добавляются сюда по мере готовности. Образец:
   # auth-service:
   #   build:

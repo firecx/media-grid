@@ -1,0 +1,23 @@
+server:
+  port: 8761
+
+spring:
+  application:
+    name: discovery
+
+eureka:
+  instance:
+    hostname: discovery
+  client:
+    # Сам регистр не регистрируется в себе и не запрашивает список служб
+    register-with-eureka: false
+    fetch-registry: false
+  server:
+    # Для одного узла: не ждать других узлов при запуске
+    wait-time-in-ms-when-sync-empty: 0
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

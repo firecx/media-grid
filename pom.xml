@@ -25,8 +25,8 @@
 
     <modules>
         <module>common</module>
-        <!-- службы добавляются по мере готовности:
         <module>discovery</module>
+        <!-- службы добавляются по мере готовности:
         <module>config-server</module>
         <module>gateway</module>
         <module>auth-service</module>
