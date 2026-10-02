@@ -38,7 +38,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: discovery/Dockerfile
-    image: mediagrid/discovery:${MEDIAGRID_VERSION:-0.3.0}
+    image: mediagrid/discovery:${MEDIAGRID_VERSION:-0.4.0-SNAPSHOT}
     restart: unless-stopped
     ports:
       - "8761:8761"
@@ -53,7 +53,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: config-server/Dockerfile
-    image: mediagrid/config-server:${MEDIAGRID_VERSION:-0.3.0}
+    image: mediagrid/config-server:${MEDIAGRID_VERSION:-0.4.0-SNAPSHOT}
     restart: unless-stopped
     environment:
       EUREKA_URL: http://discovery:8761/eureka
@@ -75,7 +75,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: gateway/Dockerfile
-    image: mediagrid/gateway:${MEDIAGRID_VERSION:-0.3.0}
+    image: mediagrid/gateway:${MEDIAGRID_VERSION:-0.4.0-SNAPSHOT}
     restart: unless-stopped
     environment:
       CONFIG_URL: http://config-server:8888
@@ -91,14 +91,33 @@ services:
       retries: 10
       start_period: 30s
 
-  # Службы добавляются сюда по мере готовности. Образец:
-  # auth-service:
-  #   build:
-  #     context: .                          # корень репозитория: нужен модуль common
-  #     dockerfile: auth-service/Dockerfile
-  #   depends_on:
-  #     postgres: { condition: service_healthy }
-  #     rabbitmq: { condition: service_healthy }
+  auth-service:
+    build:
+      context: .                          # корень репозитория: нужен модуль common
+      dockerfile: auth-service/Dockerfile
+    image: mediagrid/auth-service:${MEDIAGRID_VERSION:-0.4.0-SNAPSHOT}
+    restart: unless-stopped
+    environment:
+      CONFIG_URL: http://config-server:8888
+      EUREKA_URL: http://discovery:8761/eureka
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+    # Порт наружу не публикуется: запросы приходят только через шлюз
+    depends_on:
+      postgres: { condition: service_healthy }
+      config-server: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8100/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  # Службы добавляются сюда по мере готовности, по образцу auth-service.
 
 volumes:
   postgres-data:

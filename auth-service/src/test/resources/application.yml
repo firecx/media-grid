@@ -1,0 +1,20 @@
+# Тесты не обращаются к центру конфигурации и регистру служб, а читают те же файлы
+# из каталога config/ напрямую. Подключение к базе подставляет Testcontainers.
+spring:
+  application:
+    name: auth-service
+  config:
+    import:
+      - file:../config/application.yml
+      - file:../config/auth-service.yml
+  cloud:
+    config:
+      enabled: false
+
+eureka:
+  client:
+    enabled: false
+
+POSTGRES_PASSWORD: test
+ADMIN_EMAIL: admin@test.local
+ADMIN_PASSWORD: admin-password

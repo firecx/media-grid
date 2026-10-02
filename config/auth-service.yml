@@ -1,0 +1,37 @@
+# Настройки службы авторизации.
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:mediagrid}
+    username: ${POSTGRES_USER:mediagrid}
+    password: ${POSTGRES_PASSWORD}
+  jpa:
+    open-in-view: false
+    hibernate:
+      # Схему меняет только Flyway (db/migration), Hibernate лишь сверяет её с классами
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: auth
+  flyway:
+    schemas: auth
+    default-schema: auth
+  cloud:
+    loadbalancer:
+      cache:
+        # Служба никого не вызывает через балансировщик
+        enabled: false
+
+mediagrid:
+  auth:
+    issuer: mediagrid-auth
+    access-token-ttl: 15m
+    refresh-token-ttl: 30d
+    cookie:
+      name: mediagrid_refresh
+      # Куки передаётся только по защищённому каналу (ТЗ, п. 4.1.5). На localhost браузеры
+      # принимают такие куки и без него; на сервере без защищённого канала вход работать не будет
+      secure: true
+    bootstrap-admin:
+      email: ${ADMIN_EMAIL:}
+      password: ${ADMIN_PASSWORD:}
