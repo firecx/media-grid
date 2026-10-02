@@ -1,0 +1,15 @@
+# Здесь только то, что нужно до обращения к центру конфигурации.
+# Остальные настройки (в том числе маршруты) — в config/gateway.yml.
+server:
+  port: 8080
+
+spring:
+  application:
+    name: gateway
+  config:
+    import: configserver:${CONFIG_URL:http://localhost:8888}
+
+management:
+  # Служебные точки на отдельном порту: наружу публикуется только 8080
+  server:
+    port: 8081

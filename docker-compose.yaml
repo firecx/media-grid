@@ -38,7 +38,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: discovery/Dockerfile
-    image: mediagrid/discovery:${MEDIAGRID_VERSION:-0.2.0}
+    image: mediagrid/discovery:${MEDIAGRID_VERSION:-0.3.0}
     restart: unless-stopped
     ports:
       - "8761:8761"
@@ -53,7 +53,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: config-server/Dockerfile
-    image: mediagrid/config-server:${MEDIAGRID_VERSION:-0.2.0}
+    image: mediagrid/config-server:${MEDIAGRID_VERSION:-0.3.0}
     restart: unless-stopped
     environment:
       EUREKA_URL: http://discovery:8761/eureka
@@ -66,6 +66,26 @@ services:
       discovery: { condition: service_healthy }
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8888/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  gateway:
+    build:
+      context: .                          # корень репозитория: нужен модуль common
+      dockerfile: gateway/Dockerfile
+    image: mediagrid/gateway:${MEDIAGRID_VERSION:-0.3.0}
+    restart: unless-stopped
+    environment:
+      CONFIG_URL: http://config-server:8888
+      EUREKA_URL: http://discovery:8761/eureka
+    ports:
+      - "8080:8080"                       # служебный порт 8081 наружу не публикуется
+    depends_on:
+      config-server: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health | grep -q UP"]
       interval: 10s
       timeout: 5s
       retries: 10

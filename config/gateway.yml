@@ -1,0 +1,42 @@
+# Настройки шлюза. Маршруты меняются здесь, без пересборки образа
+# (после правки шлюз нужно перезапустить).
+#
+# Соглашение: снаружи все запросы идут на /api/<раздел>/**, путь передаётся
+# службе без изменений. lb://<имя> — служба ищется в регистре служб,
+# запросы распределяются между её экземплярами.
+
+spring:
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: auth
+              uri: lb://auth-service
+              predicates:
+                - Path=/api/auth/**
+            - id: media
+              uri: lb://media-service
+              predicates:
+                - Path=/api/media/**
+            - id: files
+              uri: lb://storage-service
+              predicates:
+                - Path=/api/files/**
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # gateway — список маршрутов (/actuator/gateway/routes), только на служебном порту
+        include: health,info,gateway
+  endpoint:
+    gateway:
+      # По умолчанию закрыта; только чтение — менять маршруты через неё нельзя
+      access: read-only
+
+logging:
+  level:
+    # Предупреждение HV000271 выдаёт класс настроек самого Spring Cloud Gateway 5.0,
+    # к нашему коду не относится
+    org.hibernate.validator.internal.metadata.aggregated.CascadingMetaDataBuilder: ERROR
