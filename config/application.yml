@@ -15,3 +15,10 @@ management:
     web:
       exposure:
         include: health,info
+
+# Проверка токенов доступа, выданных службой авторизации
+mediagrid:
+  security:
+    issuer: mediagrid-auth
+    # Вместо адреса — имя службы в регистре: конкретный экземпляр выбирает балансировщик
+    jwk-set-uri: http://auth-service/api/auth/jwks

@@ -38,7 +38,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: discovery/Dockerfile
-    image: mediagrid/discovery:${MEDIAGRID_VERSION:-0.4.0-SNAPSHOT}
+    image: mediagrid/discovery:${MEDIAGRID_VERSION:-0.4.0}
     restart: unless-stopped
     ports:
       - "8761:8761"
@@ -53,7 +53,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: config-server/Dockerfile
-    image: mediagrid/config-server:${MEDIAGRID_VERSION:-0.4.0-SNAPSHOT}
+    image: mediagrid/config-server:${MEDIAGRID_VERSION:-0.4.0}
     restart: unless-stopped
     environment:
       EUREKA_URL: http://discovery:8761/eureka
@@ -75,7 +75,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: gateway/Dockerfile
-    image: mediagrid/gateway:${MEDIAGRID_VERSION:-0.4.0-SNAPSHOT}
+    image: mediagrid/gateway:${MEDIAGRID_VERSION:-0.4.0}
     restart: unless-stopped
     environment:
       CONFIG_URL: http://config-server:8888
@@ -95,7 +95,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: auth-service/Dockerfile
-    image: mediagrid/auth-service:${MEDIAGRID_VERSION:-0.4.0-SNAPSHOT}
+    image: mediagrid/auth-service:${MEDIAGRID_VERSION:-0.4.0}
     restart: unless-stopped
     environment:
       CONFIG_URL: http://config-server:8888

@@ -24,7 +24,8 @@ spring:
 
 mediagrid:
   auth:
-    issuer: mediagrid-auth
+    # Общее значение из config/application.yml: по нему токены проверяют остальные службы
+    issuer: ${mediagrid.security.issuer}
     access-token-ttl: 15m
     refresh-token-ttl: 30d
     cookie:

@@ -1,0 +1,16 @@
+# Тесты не обращаются к центру конфигурации и регистру служб, а читают те же файлы
+# из каталога config/ напрямую. Служб нет, поэтому пропущенный шлюзом запрос получает 503.
+spring:
+  application:
+    name: gateway
+  config:
+    import:
+      - file:../config/application.yml
+      - file:../config/gateway.yml
+  cloud:
+    config:
+      enabled: false
+
+eureka:
+  client:
+    enabled: false
