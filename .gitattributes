@@ -1,0 +1,25 @@
+# Окончания строк — как в Linux (LF) везде, в том числе в рабочей папке под Windows:
+# службы собираются и работают в контейнерах на Linux. Этот файл главнее настройки core.autocrlf.
+* text=auto eol=lf
+
+# Сценарии Windows, если появятся, — с окончаниями Windows
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Двоичные файлы не преобразуются
+*.jar binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.mp4 binary
+*.webm binary
+*.mp3 binary
+*.ogg binary
+*.flac binary
+*.wav binary
+*.pdf binary
+*.woff binary
+*.woff2 binary

@@ -5,6 +5,9 @@ spring:
     url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:mediagrid}
     username: ${POSTGRES_USER:mediagrid}
     password: ${POSTGRES_PASSWORD}
+    hikari:
+      # Схема службы для всех запросов, в том числе написанных на чистом SQL
+      schema: auth
   jpa:
     open-in-view: false
     hibernate:

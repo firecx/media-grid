@@ -1,0 +1,31 @@
+# Настройки службы медиаданных.
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:mediagrid}
+    username: ${POSTGRES_USER:mediagrid}
+    password: ${POSTGRES_PASSWORD}
+    hikari:
+      # Схема службы для всех запросов, в том числе написанных на чистом SQL
+      schema: media
+  jpa:
+    open-in-view: false
+    hibernate:
+      # Схему меняет только Flyway (db/migration), Hibernate лишь сверяет её с классами
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: media
+        # Теги и категории страницы списка подгружаются пачками, а не по одному запросу на файл
+        default_batch_fetch_size: 100
+  flyway:
+    schemas: media
+    default-schema: media
+
+mediagrid:
+  media:
+    max-file-size: 20GB
+    # Запись без загруженного файла удаляется через этот срок (ТЗ, п. 4.1.9)
+    pending-upload-ttl: 24h
+    # Формат PT1H — так его понимает планировщик
+    cleanup-interval: PT1H

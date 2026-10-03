@@ -1,0 +1,10 @@
+# Здесь только то, что нужно до обращения к центру конфигурации.
+# Остальные настройки — в config/media-service.yml.
+server:
+  port: 8200
+
+spring:
+  application:
+    name: media-service
+  config:
+    import: configserver:${CONFIG_URL:http://localhost:8888}

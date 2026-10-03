@@ -22,3 +22,20 @@ mediagrid:
     issuer: mediagrid-auth
     # Вместо адреса — имя службы в регистре: конкретный экземпляр выбирает балансировщик
     jwk-set-uri: http://auth-service/api/auth/jwks
+
+# Шина сообщений — для служб, которые с ней работают; остальные эти настройки не читают
+spring:
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:mediagrid}
+    password: ${RABBITMQ_PASSWORD:}
+    listener:
+      simple:
+        # Сообщение, обработка которого упала, повторяется 3 раза с паузой, затем уходит в очередь .dlq
+        retry:
+          enabled: true
+          max-attempts: 3
+          initial-interval: 1s
+          multiplier: 2
+        default-requeue-rejected: false

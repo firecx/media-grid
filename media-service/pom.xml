@@ -10,9 +10,9 @@
         <version>0.5.0</version>
     </parent>
 
-    <artifactId>auth-service</artifactId>
-    <name>MediaGrid :: Служба авторизации</name>
-    <description>Учёт пользователей, выдача и проверка токенов доступа, управление ролями.</description>
+    <artifactId>media-service</artifactId>
+    <name>MediaGrid :: Служба медиаданных</name>
+    <description>Метаданные файлов, каталогизация по категориям и тегам, поиск, статус обработки.</description>
 
     <dependencies>
         <dependency>
@@ -33,17 +33,13 @@
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
 
-        <!-- Защита: проверка собственных токенов доступа и их выпуск (Nimbus) -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-security</artifactId>
-        </dependency>
+        <!-- Проверка токенов доступа службы авторизации -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security-oauth2-resource-server</artifactId>
         </dependency>
 
-        <!-- База данных: схема auth, изменения схемы через Flyway -->
+        <!-- База данных: схема media, изменения схемы через Flyway -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
@@ -62,6 +58,12 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- Шина сообщений: события загрузки, обработки и удаления -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-amqp</artifactId>
+        </dependency>
+
         <!-- Служебная инфраструктура -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>
@@ -71,8 +73,13 @@
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-config</artifactId>
         </dependency>
+        <!-- Кэш списка экземпляров для балансировщика (запрос открытых ключей у службы авторизации) -->
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+        </dependency>
 
-        <!-- Тесты на настоящем PostgreSQL в контейнере -->
+        <!-- Тесты на настоящих PostgreSQL и RabbitMQ в контейнерах -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webmvc-test</artifactId>
@@ -88,10 +95,20 @@
             <artifactId>testcontainers-postgresql</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-rabbitmq</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.awaitility</groupId>
+            <artifactId>awaitility</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
-        <finalName>auth-service</finalName>
+        <finalName>media-service</finalName>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>

@@ -6,6 +6,7 @@ import org.springframework.boot.webflux.error.ErrorWebExceptionHandler;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
+import org.springframework.security.authentication.AuthenticationServiceException;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.server.ServerWebExchange;
@@ -29,6 +30,12 @@ public class ApiErrorWebExceptionHandler implements ErrorWebExceptionHandler {
 
     @Override
     public Mono<Void> handle(ServerWebExchange exchange, Throwable error) {
+        if (error instanceof AuthenticationServiceException) {
+            // Токен нельзя проверить: служба авторизации недоступна, а ключей ещё нет
+            log.warn("Не удалось проверить токен: {}", error.getMessage());
+            return writer.write(exchange, HttpStatus.SERVICE_UNAVAILABLE, "SERVICE_UNAVAILABLE",
+                    "Проверка входа временно недоступна, повторите запрос позже");
+        }
         HttpStatusCode status = error instanceof ResponseStatusException rse
                 ? rse.getStatusCode()
                 : HttpStatus.INTERNAL_SERVER_ERROR;
