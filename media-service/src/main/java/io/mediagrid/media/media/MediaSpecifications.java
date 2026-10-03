@@ -4,7 +4,7 @@ import java.util.Locale;
 import java.util.UUID;
 
 import io.mediagrid.media.tag.Tag;
-import io.mediagrid.media.web.CurrentUser;
+import io.mediagrid.support.security.CurrentUser;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.Subquery;
 import org.springframework.data.jpa.domain.Specification;

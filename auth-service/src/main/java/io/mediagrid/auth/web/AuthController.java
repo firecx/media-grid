@@ -12,6 +12,7 @@ import io.mediagrid.auth.token.SessionService.Session;
 import io.mediagrid.auth.user.UserDtos.ChangePasswordRequest;
 import io.mediagrid.auth.user.UserDtos.UserResponse;
 import io.mediagrid.auth.user.UserService;
+import io.mediagrid.support.web.ApiException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;

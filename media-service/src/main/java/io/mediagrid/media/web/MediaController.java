@@ -15,6 +15,8 @@ import io.mediagrid.media.media.MediaDtos.UpdateMediaRequest;
 import io.mediagrid.media.media.MediaKind;
 import io.mediagrid.media.media.MediaService;
 import io.mediagrid.media.media.MediaStatus;
+import io.mediagrid.support.security.CurrentUser;
+import io.mediagrid.support.web.ApiException;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;

@@ -1,0 +1,20 @@
+# Тесты не обращаются к центру конфигурации и регистру служб, а читают те же файлы
+# из каталога config/ напрямую. Подключения к базе и шине подставляет Testcontainers.
+spring:
+  application:
+    name: storage-service
+  config:
+    import:
+      - file:../config/application.yml
+      - file:../config/storage-service.yml
+  cloud:
+    config:
+      enabled: false
+
+eureka:
+  client:
+    enabled: false
+
+POSTGRES_PASSWORD: test
+STORAGE_ROOT: target/test-storage
+STORAGE_LINK_SECRET: test-secret-for-signing-links-0123456789

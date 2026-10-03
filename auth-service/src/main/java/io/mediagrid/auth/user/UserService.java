@@ -6,7 +6,7 @@ import java.util.UUID;
 import io.mediagrid.auth.token.RefreshTokenService;
 import io.mediagrid.auth.user.UserDtos.CreateUserRequest;
 import io.mediagrid.auth.user.UserDtos.UpdateUserRequest;
-import io.mediagrid.auth.web.ApiException;
+import io.mediagrid.support.web.ApiException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;

@@ -12,7 +12,7 @@ import java.util.UUID;
 
 import io.mediagrid.auth.config.AuthProperties;
 import io.mediagrid.auth.user.User;
-import io.mediagrid.auth.web.ApiException;
+import io.mediagrid.support.web.ApiException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;

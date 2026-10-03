@@ -93,6 +93,14 @@ class GatewaySecurityTest {
     }
 
     @Test
+    void fileContentByLinkDoesNotNeedTokenButOtherFileOperationsDo() {
+        client.get().uri("/api/files/" + UUID.randomUUID() + "/content?expires=1&signature=x")
+                .exchange().expectStatus().isEqualTo(503);
+        client.put().uri("/api/files/" + UUID.randomUUID()).exchange().expectStatus().isUnauthorized();
+        client.post().uri("/api/files/" + UUID.randomUUID() + "/links").exchange().expectStatus().isUnauthorized();
+    }
+
+    @Test
     void otherAuthEndpointsNeedToken() {
         client.get().uri("/api/auth/me").exchange().expectStatus().isUnauthorized();
         client.get().uri("/api/auth/login").exchange().expectStatus().isUnauthorized();

@@ -7,7 +7,7 @@
     <parent>
         <groupId>io.mediagrid</groupId>
         <artifactId>mediagrid-parent</artifactId>
-        <version>0.5.0</version>
+        <version>0.6.0</version>
     </parent>
 
     <artifactId>media-service</artifactId>
@@ -15,15 +15,12 @@
     <description>Метаданные файлов, каталогизация по категориям и тегам, поиск, статус обработки.</description>
 
     <dependencies>
+        <!-- Общая основа служб: Spring MVC, защита, проверка токенов, ошибки в формате ApiError -->
         <dependency>
             <groupId>io.mediagrid</groupId>
-            <artifactId>common</artifactId>
+            <artifactId>service-support</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-webmvc</artifactId>
-        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
@@ -31,12 +28,6 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
-        </dependency>
-
-        <!-- Проверка токенов доступа службы авторизации -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-security-oauth2-resource-server</artifactId>
         </dependency>
 
         <!-- База данных: схема media, изменения схемы через Flyway -->

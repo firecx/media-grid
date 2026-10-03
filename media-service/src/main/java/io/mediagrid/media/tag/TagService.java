@@ -7,7 +7,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
-import io.mediagrid.media.web.ApiException;
+import io.mediagrid.support.web.ApiException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

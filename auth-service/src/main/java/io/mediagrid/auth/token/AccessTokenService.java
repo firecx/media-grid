@@ -8,6 +8,7 @@ import java.util.UUID;
 import io.mediagrid.auth.config.AuthProperties;
 import io.mediagrid.auth.key.SigningKeyService;
 import io.mediagrid.auth.user.User;
+import io.mediagrid.support.security.ResourceServerSecurity;
 import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
 import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
@@ -24,7 +25,7 @@ import org.springframework.stereotype.Service;
 public class AccessTokenService {
 
     /** Утверждение со списком ролей; службы превращают его в права ROLE_*. */
-    public static final String ROLES_CLAIM = "roles";
+    public static final String ROLES_CLAIM = ResourceServerSecurity.ROLES_CLAIM;
 
     private final JwtEncoder encoder;
     private final SigningKeyService keys;

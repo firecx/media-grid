@@ -38,7 +38,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: discovery/Dockerfile
-    image: mediagrid/discovery:${MEDIAGRID_VERSION:-0.5.0}
+    image: mediagrid/discovery:${MEDIAGRID_VERSION:-0.6.0}
     restart: unless-stopped
     ports:
       - "8761:8761"
@@ -53,7 +53,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: config-server/Dockerfile
-    image: mediagrid/config-server:${MEDIAGRID_VERSION:-0.5.0}
+    image: mediagrid/config-server:${MEDIAGRID_VERSION:-0.6.0}
     restart: unless-stopped
     environment:
       EUREKA_URL: http://discovery:8761/eureka
@@ -75,7 +75,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: gateway/Dockerfile
-    image: mediagrid/gateway:${MEDIAGRID_VERSION:-0.5.0}
+    image: mediagrid/gateway:${MEDIAGRID_VERSION:-0.6.0}
     restart: unless-stopped
     environment:
       CONFIG_URL: http://config-server:8888
@@ -95,7 +95,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: auth-service/Dockerfile
-    image: mediagrid/auth-service:${MEDIAGRID_VERSION:-0.5.0}
+    image: mediagrid/auth-service:${MEDIAGRID_VERSION:-0.6.0}
     restart: unless-stopped
     environment:
       CONFIG_URL: http://config-server:8888
@@ -121,7 +121,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: media-service/Dockerfile
-    image: mediagrid/media-service:${MEDIAGRID_VERSION:-0.5.0}
+    image: mediagrid/media-service:${MEDIAGRID_VERSION:-0.6.0}
     restart: unless-stopped
     environment:
       CONFIG_URL: http://config-server:8888
@@ -145,7 +145,41 @@ services:
       retries: 10
       start_period: 40s
 
+  storage-service:
+    build:
+      context: .                          # корень репозитория: нужен модуль common
+      dockerfile: storage-service/Dockerfile
+    image: mediagrid/storage-service:${MEDIAGRID_VERSION:-0.6.0}
+    restart: unless-stopped
+    environment:
+      CONFIG_URL: http://config-server:8888
+      EUREKA_URL: http://discovery:8761/eureka
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      STORAGE_ROOT: /data/storage
+      STORAGE_LINK_SECRET: ${STORAGE_LINK_SECRET}
+    volumes:
+      # Файлы пользователей; наружу каталог не публикуется, файлы отдаёт только служба
+      - storage-data:/data/storage
+    # Порт наружу не публикуется: запросы приходят только через шлюз
+    depends_on:
+      postgres: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+      config-server: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8300/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
   # Службы добавляются сюда по мере готовности, по образцу auth-service.
 
 volumes:
   postgres-data:
+  storage-data:

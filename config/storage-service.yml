@@ -1,0 +1,35 @@
+# Настройки службы загрузки и хранения.
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:mediagrid}
+    username: ${POSTGRES_USER:mediagrid}
+    password: ${POSTGRES_PASSWORD}
+    hikari:
+      # Схема службы для всех запросов, в том числе написанных на чистом SQL
+      schema: storage
+  jpa:
+    open-in-view: false
+    hibernate:
+      # Схему меняет только Flyway (db/migration), Hibernate лишь сверяет её с классами
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: storage
+  flyway:
+    schemas: storage
+    default-schema: storage
+  mvc:
+    formcontent:
+      filter:
+        # Тело PUT не разбирается как форма: файл любого типа идёт в хранилище потоком, мимо памяти
+        enabled: false
+
+mediagrid:
+  storage:
+    # Каталог файлов; в контейнере — подключённый том
+    root: ${STORAGE_ROOT:./data/storage}
+    # Срок действия ссылки на скачивание и воспроизведение (ТЗ, п. 4.1.5)
+    link-ttl: 4h
+    # Ключ подписи ссылок: случайная строка не короче 32 символов, задаётся в .env
+    link-secret: ${STORAGE_LINK_SECRET}

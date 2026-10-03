@@ -1,4 +1,4 @@
-package io.mediagrid.auth.web;
+package io.mediagrid.support.web;
 
 import org.springframework.http.HttpStatus;
 

@@ -7,7 +7,7 @@ import io.mediagrid.auth.token.RefreshTokenService.Rotation;
 import io.mediagrid.auth.user.User;
 import io.mediagrid.auth.user.UserRepository;
 import io.mediagrid.auth.user.UserService;
-import io.mediagrid.auth.web.ApiException;
+import io.mediagrid.support.web.ApiException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

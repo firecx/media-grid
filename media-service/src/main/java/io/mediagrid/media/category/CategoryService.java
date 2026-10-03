@@ -3,7 +3,7 @@ package io.mediagrid.media.category;
 import java.util.List;
 import java.util.UUID;
 
-import io.mediagrid.media.web.ApiException;
+import io.mediagrid.support.web.ApiException;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import org.springframework.data.domain.Sort;

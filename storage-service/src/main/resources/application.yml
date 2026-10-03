@@ -1,0 +1,10 @@
+# Здесь только то, что нужно до обращения к центру конфигурации.
+# Остальные настройки — в config/storage-service.yml.
+server:
+  port: 8300
+
+spring:
+  application:
+    name: storage-service
+  config:
+    import: configserver:${CONFIG_URL:http://localhost:8888}

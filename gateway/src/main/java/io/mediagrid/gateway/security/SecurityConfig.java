@@ -46,6 +46,10 @@ public class SecurityConfig {
                         .pathMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/refresh", "/api/auth/logout")
                         .permitAll()
                         .pathMatchers(HttpMethod.GET, "/api/auth/jwks").permitAll()
+                        // Файл по ссылке с ограниченным сроком: вместо токена служба хранения проверяет подпись.
+                        // Тег video не умеет передавать заголовок Authorization
+                        .pathMatchers(HttpMethod.GET, "/api/files/*/content").permitAll()
+                        .pathMatchers(HttpMethod.HEAD, "/api/files/*/content").permitAll()
                         // Служебные точки шлюза доступны только на порту 8081, который наружу не публикуется
                         .pathMatchers("/actuator/**").permitAll()
                         // Административные функции всех служб — по единому пути /api/<раздел>/admin/**

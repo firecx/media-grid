@@ -7,7 +7,7 @@
     <parent>
         <groupId>io.mediagrid</groupId>
         <artifactId>mediagrid-parent</artifactId>
-        <version>0.5.0</version>
+        <version>0.6.0</version>
     </parent>
 
     <artifactId>auth-service</artifactId>
@@ -15,15 +15,12 @@
     <description>Учёт пользователей, выдача и проверка токенов доступа, управление ролями.</description>
 
     <dependencies>
+        <!-- Общая основа служб: Spring MVC, защита, проверка токенов, ошибки в формате ApiError -->
         <dependency>
             <groupId>io.mediagrid</groupId>
-            <artifactId>common</artifactId>
+            <artifactId>service-support</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-webmvc</artifactId>
-        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
@@ -31,16 +28,6 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
-        </dependency>
-
-        <!-- Защита: проверка собственных токенов доступа и их выпуск (Nimbus) -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-security</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-security-oauth2-resource-server</artifactId>
         </dependency>
 
         <!-- База данных: схема auth, изменения схемы через Flyway -->

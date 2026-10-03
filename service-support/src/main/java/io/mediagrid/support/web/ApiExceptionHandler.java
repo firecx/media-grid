@@ -1,4 +1,4 @@
-package io.mediagrid.media.web;
+package io.mediagrid.support.web;
 
 import java.util.stream.Collectors;
 
@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
-/** Все ошибки службы отдаются в едином формате ApiError. */
+/** Все ошибки службы отдаются в едином формате ApiError. Регистрируется автоматически. */
 @RestControllerAdvice
 public class ApiExceptionHandler {
 
