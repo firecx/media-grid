@@ -12,11 +12,12 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
 import io.mediagrid.storage.config.StorageProperties;
+import io.mediagrid.storage.file.VariantKind;
 import org.springframework.stereotype.Component;
 
 /**
- * Подпись ссылок на файл (HMAC-SHA256). Подписаны номер файла, срок действия и вид выдачи,
- * поэтому ссылку нельзя продлить или перенести на другой файл. По ссылке файл отдаётся без токена:
+ * Подпись ссылок на файл (HMAC-SHA256). Подписаны номер файла, вид (исходный или производный), срок
+ * действия и способ выдачи, поэтому ссылку нельзя продлить или перенести на другой файл. По ссылке файл отдаётся без токена:
  * так работает воспроизведение в теге video, который не умеет передавать заголовок Authorization.
  */
 @Component
@@ -30,13 +31,14 @@ public class LinkSigner {
         this.key = new SecretKeySpec(properties.linkSecret().getBytes(StandardCharsets.UTF_8), ALGORITHM);
     }
 
-    public String sign(UUID mediaId, Instant expires, boolean download) {
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(mac(payload(mediaId, expires, download)));
+    public String sign(UUID mediaId, VariantKind kind, Instant expires, boolean download) {
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(
+                mac(payload(mediaId, kind, expires, download)));
     }
 
     /** Сравнение за постоянное время: по времени ответа нельзя подобрать подпись. */
-    public boolean isValid(UUID mediaId, Instant expires, boolean download, String signature) {
-        byte[] expected = mac(payload(mediaId, expires, download));
+    public boolean isValid(UUID mediaId, VariantKind kind, Instant expires, boolean download, String signature) {
+        byte[] expected = mac(payload(mediaId, kind, expires, download));
         byte[] given;
         try {
             given = Base64.getUrlDecoder().decode(signature);
@@ -46,8 +48,8 @@ public class LinkSigner {
         return MessageDigest.isEqual(expected, given);
     }
 
-    private static String payload(UUID mediaId, Instant expires, boolean download) {
-        return mediaId + ":" + expires.getEpochSecond() + ":" + (download ? "download" : "inline");
+    private static String payload(UUID mediaId, VariantKind kind, Instant expires, boolean download) {
+        return mediaId + ":" + kind.pathName() + ":" + expires.getEpochSecond() + ":" + (download ? "download" : "inline");
     }
 
     private byte[] mac(String payload) {

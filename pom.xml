@@ -14,7 +14,7 @@
 
     <groupId>io.mediagrid</groupId>
     <artifactId>mediagrid-parent</artifactId>
-    <version>0.6.0</version>
+    <version>0.7.0</version>
     <packaging>pom</packaging>
     <name>MediaGrid</name>
 
@@ -32,9 +32,7 @@
         <module>auth-service</module>
         <module>media-service</module>
         <module>storage-service</module>
-        <!-- службы добавляются по мере готовности:
         <module>processing-service</module>
-        -->
     </modules>
 
     <dependencyManagement>

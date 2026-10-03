@@ -10,6 +10,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.UUID;
 
 import com.jayway.jsonpath.JsonPath;
@@ -24,6 +26,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
@@ -47,8 +51,13 @@ class AuthFlowTest {
         }
     }
 
+    private static final String SERVICE_SECRET = "test-processing-secret-0123456789abcdef";
+
     @Autowired
     MockMvc mvc;
+
+    @Autowired
+    JwtDecoder jwtDecoder;
 
     @Test
     void adminCreatedFromSettingsCanLogIn() throws Exception {
@@ -212,6 +221,36 @@ class AuthFlowTest {
                 .andExpect(jsonPath("$.keys[0].alg").value("RS256"))
                 .andExpect(jsonPath("$.keys[0].n").isNotEmpty())
                 .andExpect(jsonPath("$.keys[0].d").doesNotExist());
+    }
+
+    @Test
+    void serviceGetsTokenWithServiceRoleOnlyWithCorrectSecret() throws Exception {
+        String body = mvc.perform(post("/internal/auth/token")
+                        .header(HttpHeaders.AUTHORIZATION, basic("processing-service", SERVICE_SECRET)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tokenType").value("Bearer"))
+                .andExpect(jsonPath("$.expiresIn").value(900))
+                .andReturn().getResponse().getContentAsString();
+        Jwt token = jwtDecoder.decode(JsonPath.read(body, "$.accessToken"));
+        assertThat(token.getSubject()).isEqualTo("processing-service");
+        assertThat(token.getClaimAsStringList("roles")).containsExactly("SERVICE");
+
+        // Токен службы не открывает пользовательские пути
+        mvc.perform(get("/api/auth/me").header(HttpHeaders.AUTHORIZATION, "Bearer " + token.getTokenValue()))
+                .andExpect(status().isForbidden());
+
+        for (String wrong : new String[] {basic("processing-service", SERVICE_SECRET + "x"),
+                basic("unknown-service", SERVICE_SECRET), "Basic not-base64!", "Bearer " + token.getTokenValue()}) {
+            mvc.perform(post("/internal/auth/token").header(HttpHeaders.AUTHORIZATION, wrong))
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.code").value("INVALID_CLIENT"));
+        }
+        mvc.perform(post("/internal/auth/token"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    private static String basic(String name, String secret) {
+        return "Basic " + Base64.getEncoder().encodeToString((name + ":" + secret).getBytes(StandardCharsets.UTF_8));
     }
 
     private ResultActions login(String email, String password) throws Exception {

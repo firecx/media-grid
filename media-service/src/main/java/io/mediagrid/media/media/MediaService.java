@@ -154,13 +154,18 @@ public class MediaService {
         }
     }
 
-    /** Служба обработки закончила работу. Если записи уже нет — событие просто устарело. */
+    /**
+     * Служба обработки закончила работу. Если записи уже нет — событие просто устарело. События идут
+     * по разным очередям, поэтому это может прийти раньше file.uploaded: обработанный файл точно загружен.
+     */
     @Transactional
     public void onProcessingCompleted(ProcessingCompletedEvent event) {
-        media.findById(event.mediaId())
-                .filter(file -> file.getStatus() != MediaStatus.PENDING_UPLOAD)
-                .ifPresent(file -> file.markProcessed(event.success(), event.previewKey() != null,
-                        truncate(event.errorMessage(), 1000)));
+        media.findById(event.mediaId()).ifPresent(file -> {
+            if (file.getStatus() == MediaStatus.PENDING_UPLOAD) {
+                file.markUploaded();
+            }
+            file.markProcessed(event.success(), event.hasPreview(), truncate(event.errorMessage(), 1000));
+        });
     }
 
     /**

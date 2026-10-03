@@ -50,6 +50,24 @@ public class AccessTokenService {
                 .claim("email", user.getEmail())
                 .claim(ROLES_CLAIM, List.of(user.getRole().name()))
                 .build();
+        return sign(claims);
+    }
+
+    /** Токен службы: вместо номера пользователя — имя службы, единственная роль SERVICE. */
+    public String issueForService(String service) {
+        Instant now = Instant.now();
+        JwtClaimsSet claims = JwtClaimsSet.builder()
+                .issuer(issuer)
+                .subject(service)
+                .id(UUID.randomUUID().toString())
+                .issuedAt(now)
+                .expiresAt(now.plus(ttl))
+                .claim(ROLES_CLAIM, List.of(ResourceServerSecurity.SERVICE_ROLE))
+                .build();
+        return sign(claims);
+    }
+
+    private String sign(JwtClaimsSet claims) {
         JwsHeader header = JwsHeader.with(SignatureAlgorithm.RS256).keyId(keys.activeKid()).build();
         return encoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
     }

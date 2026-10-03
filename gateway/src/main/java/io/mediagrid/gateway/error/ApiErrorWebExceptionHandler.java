@@ -1,5 +1,7 @@
 package io.mediagrid.gateway.error;
 
+import java.net.ConnectException;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.webflux.error.ErrorWebExceptionHandler;
@@ -38,7 +40,7 @@ public class ApiErrorWebExceptionHandler implements ErrorWebExceptionHandler {
         }
         HttpStatusCode status = error instanceof ResponseStatusException rse
                 ? rse.getStatusCode()
-                : HttpStatus.INTERNAL_SERVER_ERROR;
+                : isConnectFailure(error) ? HttpStatus.SERVICE_UNAVAILABLE : HttpStatus.INTERNAL_SERVER_ERROR;
         if (status.is5xxServerError()) {
             log.warn("{} {} -> {}: {}", exchange.getRequest().getMethod(), exchange.getRequest().getPath(),
                     status.value(), error.getMessage());
@@ -54,5 +56,18 @@ public class ApiErrorWebExceptionHandler implements ErrorWebExceptionHandler {
                     : writer.write(exchange, HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR",
                             "Внутренняя ошибка шлюза");
         };
+    }
+
+    /**
+     * Служба не принимает соединения: остановлена, а регистр ещё не убрал её (запись живёт до 90 секунд).
+     * Отказ и тайм-аут соединения у Netty — наследники ConnectException.
+     */
+    private static boolean isConnectFailure(Throwable error) {
+        for (Throwable e = error; e != null; e = e.getCause()) {
+            if (e instanceof ConnectException) {
+                return true;
+            }
+        }
+        return false;
     }
 }

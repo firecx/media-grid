@@ -1,0 +1,20 @@
+# Тесты не обращаются к центру конфигурации и регистру служб, а читают те же файлы
+# из каталога config/ напрямую. Подключения к базе и шине подставляет Testcontainers.
+spring:
+  application:
+    name: processing-service
+  config:
+    import:
+      - file:../config/application.yml
+      - file:../config/processing-service.yml
+  cloud:
+    config:
+      enabled: false
+
+eureka:
+  client:
+    enabled: false
+
+POSTGRES_PASSWORD: test
+PROCESSING_WORK_DIR: target/test-work
+PROCESSING_CLIENT_SECRET: test-processing-secret-0123456789abcdef

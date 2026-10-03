@@ -16,6 +16,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
@@ -25,7 +27,10 @@ import com.jayway.jsonpath.JsonPath;
 import io.mediagrid.common.events.Events;
 import io.mediagrid.common.events.FileUploadedEvent;
 import io.mediagrid.common.events.MediaDeletedEvent;
+import io.mediagrid.storage.config.StorageProperties;
+import io.mediagrid.storage.file.FileVariantRepository;
 import io.mediagrid.storage.file.StoredFileRepository;
+import io.mediagrid.storage.file.VariantKind;
 import io.mediagrid.storage.link.LinkSigner;
 import io.mediagrid.storage.media.MediaClient;
 import io.mediagrid.storage.media.MediaInfo;
@@ -106,6 +111,12 @@ class StorageServiceTest {
     @Autowired
     LinkSigner signer;
 
+    @Autowired
+    FileVariantRepository variants;
+
+    @Autowired
+    StorageProperties storageProperties;
+
     final UUID alice = UUID.randomUUID();
     final UUID bob = UUID.randomUUID();
 
@@ -129,8 +140,7 @@ class StorageServiceTest {
                 .andExpect(jsonPath("$.complete").value(true));
 
         Object event = rabbit.receiveAndConvert(UPLOADED_PROBE, 10_000);
-        assertThat(event).isEqualTo(new FileUploadedEvent(id, "originals/" + id.toString().substring(0, 2) + "/" + id,
-                "video/mp4", 1000));
+        assertThat(event).isEqualTo(new FileUploadedEvent(id, alice, "video/mp4", 1000));
         mvc.perform(get(link(alice, id, false))).andExpect(status().isOk()).andExpect(content().bytes(data));
     }
 
@@ -249,10 +259,14 @@ class StorageServiceTest {
         // Ни на скачивание вместо просмотра
         mvc.perform(get(good.replace("download=false", "download=true")))
                 .andExpect(jsonPath("$.code").value("LINK_INVALID"));
+        // Ни на производный файл вместо исходного
+        mvc.perform(get(good.replace("variant=original", "variant=preview")))
+                .andExpect(jsonPath("$.code").value("LINK_INVALID"));
 
         Instant past = Instant.now().minus(Duration.ofMinutes(1));
         String expired = "/api/files/" + id + "/content?expires=" + past.getEpochSecond()
-                + "&download=false&signature=" + signer.sign(id, Instant.ofEpochSecond(past.getEpochSecond()), false);
+                + "&download=false&signature=" + signer.sign(id, VariantKind.ORIGINAL,
+                Instant.ofEpochSecond(past.getEpochSecond()), false);
         mvc.perform(get(expired))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("LINK_EXPIRED"));
@@ -289,6 +303,76 @@ class StorageServiceTest {
     }
 
     @Test
+    void processingServiceReadsOriginalAndStoresVariants() throws Exception {
+        byte[] data = bytes(100);
+        UUID id = pendingMedia(alice, data.length);
+        upload(alice, id, data, null).andExpect(status().isOk());
+
+        mvc.perform(get("/internal/files/" + id).header(HttpHeaders.AUTHORIZATION, service()))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "video/mp4"))
+                .andExpect(content().bytes(data));
+
+        // Пока версии для воспроизведения нет, браузер получает исходный файл
+        assertThat(JsonPath.<String>read(linkBody(alice, id, "playback", false), "$.variant")).isEqualTo("original");
+        mvc.perform(post("/api/files/" + id + "/links").header(HttpHeaders.AUTHORIZATION, user(alice))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"variant\": \"thumbnail\"}"))
+                .andExpect(status().isNotFound());
+
+        byte[] preview = bytes(40);
+        storeVariant(id, "preview", "image/jpeg", preview)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.kind").value("preview"))
+                .andExpect(jsonPath("$.sizeBytes").value(40));
+        storeVariant(id, "playback", "video/mp4", bytes(70)).andExpect(status().isOk());
+
+        mvc.perform(get(link(alice, id, "preview", true)))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "image/jpeg"))
+                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, containsString("-preview.jpg")))
+                .andExpect(content().bytes(preview));
+        String playback = linkBody(alice, id, "playback", false);
+        assertThat(JsonPath.<String>read(playback, "$.variant")).isEqualTo("playback");
+        mvc.perform(get(JsonPath.<String>read(playback, "$.url")).header(HttpHeaders.RANGE, "bytes=0-9"))
+                .andExpect(status().isPartialContent())
+                .andExpect(header().string(HttpHeaders.CONTENT_RANGE, "bytes 0-9/70"));
+
+        // Повторная обработка заменяет версию, прежняя удаляется из хранилища
+        byte[] newPreview = bytes(25);
+        storeVariant(id, "preview", "image/jpeg", newPreview).andExpect(status().isOk());
+        mvc.perform(get(link(alice, id, "preview", false))).andExpect(content().bytes(newPreview));
+        Path variantDir = storageProperties.root().resolve("variants").resolve(id.toString().substring(0, 2))
+                .resolve(id.toString());
+        assertThat(filesIn(variantDir)).isEqualTo(2);
+
+        rabbit.convertAndSend(Events.EXCHANGE, Events.MEDIA_DELETED, new MediaDeletedEvent(id));
+        await().atMost(Duration.ofSeconds(10)).until(() -> files.findById(id).isEmpty());
+        assertThat(variants.findByMediaId(id)).isEmpty();
+        assertThat(filesIn(variantDir)).isZero();
+    }
+
+    @Test
+    void internalPathsAreForServicesOnly() throws Exception {
+        UUID id = pendingMedia(alice, 10);
+        upload(alice, id, bytes(10), null).andExpect(status().isOk());
+
+        mvc.perform(get("/internal/files/" + id).header(HttpHeaders.AUTHORIZATION, user(alice)))
+                .andExpect(status().isForbidden());
+        mvc.perform(put("/api/files/" + id).header(HttpHeaders.AUTHORIZATION, service()).content(bytes(10)))
+                .andExpect(status().isForbidden());
+
+        storeVariant(id, "original", "video/mp4", bytes(5))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_VARIANT"));
+        storeVariant(id, "poster", "image/jpeg", bytes(5))
+                .andExpect(jsonPath("$.code").value("INVALID_VARIANT"));
+        storeVariant(UUID.randomUUID(), "preview", "image/jpeg", bytes(5))
+                .andExpect(status().isNotFound());
+        mvc.perform(get("/internal/files/" + UUID.randomUUID()).header(HttpHeaders.AUTHORIZATION, service()))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     void uploadNeedsToken() throws Exception {
         mvc.perform(put("/api/files/" + UUID.randomUUID()).content(bytes(10)))
                 .andExpect(status().isUnauthorized())
@@ -316,17 +400,44 @@ class StorageServiceTest {
     }
 
     private String link(UUID user, UUID id, boolean download) throws Exception {
-        String body = mvc.perform(post("/api/files/" + id + "/links").header(HttpHeaders.AUTHORIZATION, user(user))
+        return link(user, id, "original", download);
+    }
+
+    private String link(UUID user, UUID id, String variant, boolean download) throws Exception {
+        return JsonPath.read(linkBody(user, id, variant, download), "$.url");
+    }
+
+    private String linkBody(UUID user, UUID id, String variant, boolean download) throws Exception {
+        return mvc.perform(post("/api/files/" + id + "/links").header(HttpHeaders.AUTHORIZATION, user(user))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"download\": " + download + "}"))
+                        .content("{\"download\": " + download + ", \"variant\": \"" + variant + "\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.expiresAt").isNotEmpty())
                 .andReturn().getResponse().getContentAsString();
-        return JsonPath.read(body, "$.url");
+    }
+
+    private ResultActions storeVariant(UUID id, String kind, String contentType, byte[] data) throws Exception {
+        return mvc.perform(put("/internal/files/" + id + "/variants/" + kind)
+                .header(HttpHeaders.AUTHORIZATION, service())
+                .contentType(MediaType.valueOf(contentType))
+                .content(data));
+    }
+
+    private static long filesIn(Path dir) throws Exception {
+        if (!Files.isDirectory(dir)) {
+            return 0;
+        }
+        try (var stream = Files.list(dir)) {
+            return stream.count();
+        }
     }
 
     private static String user(UUID id) {
         return TestTokens.bearer(id, "USER");
+    }
+
+    private static String service() {
+        return TestTokens.service("processing-service");
     }
 
     private static byte[] bytes(int size) {

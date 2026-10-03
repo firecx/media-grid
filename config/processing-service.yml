@@ -1,0 +1,44 @@
+# Настройки службы обработки.
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:mediagrid}
+    username: ${POSTGRES_USER:mediagrid}
+    password: ${POSTGRES_PASSWORD}
+    hikari:
+      # Схема службы для всех запросов, в том числе написанных на чистом SQL
+      schema: processing
+  jpa:
+    open-in-view: false
+    hibernate:
+      # Схему меняет только Flyway (db/migration), Hibernate лишь сверяет её с классами
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: processing
+  flyway:
+    schemas: processing
+    default-schema: processing
+
+mediagrid:
+  processing:
+    # Временные файлы на время обработки; в контейнере — подключённый том
+    work-dir: ${PROCESSING_WORK_DIR:./data/processing}
+    # Сколько файлов обрабатывается одновременно; ffmpeg и так занимает все ядра
+    workers: 1
+    # Как часто исполнители смотрят в очередь (новые задачи берутся и сразу по событию)
+    poll-interval: 5s
+    # Попыток при временных сбоях (служба хранения недоступна); пауза между ними растёт вдвое
+    max-attempts: 5
+    retry-delay: 30s
+    # Задача, исполнитель которой не отмечался дольше этого срока (служба упала), возвращается в очередь
+    stale-after: 5m
+    # Наибольшее время перекодирования одного файла
+    job-timeout: 6h
+    # Наибольшее время передачи файла между службами
+    transfer-timeout: 1h
+    # Наибольшая сторона миниатюры и превью, точек
+    thumbnail-size: 320
+    preview-size: 1280
+    # Секрет службы для получения токена у службы авторизации (тот же, что у неё в service-clients)
+    client-secret: ${PROCESSING_CLIENT_SECRET}

@@ -10,8 +10,9 @@ import java.util.List;
 import java.util.UUID;
 
 import io.mediagrid.storage.file.FileService;
+import io.mediagrid.storage.file.FileService.Content;
 import io.mediagrid.storage.file.FileService.Link;
-import io.mediagrid.storage.file.StoredFile;
+import io.mediagrid.storage.file.VariantKind;
 import io.mediagrid.storage.upload.ContentRange;
 import io.mediagrid.storage.upload.UploadService;
 import io.mediagrid.storage.upload.UploadService.UploadState;
@@ -88,12 +89,19 @@ public class FileController {
                 .build();
     }
 
-    /** Ссылка для воспроизведения (download=false) или скачивания (download=true). */
+    /**
+     * Ссылка для просмотра (download=false) или скачивания (download=true) исходного файла или производного:
+     * variant = original (по умолчанию), playback, preview, thumbnail.
+     */
     @PostMapping("/{mediaId}/links")
     public Link createLink(@PathVariable UUID mediaId,
                            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
                            @RequestBody(required = false) LinkRequest request) {
-        return files.createLink(mediaId, authorization, request != null && request.download());
+        LinkRequest options = request != null ? request : new LinkRequest(null, null);
+        VariantKind variant = options.variant() == null
+                ? VariantKind.ORIGINAL
+                : VariantKind.fromPath(options.variant());
+        return files.createLink(mediaId, authorization, Boolean.TRUE.equals(options.download()), variant);
     }
 
     /**
@@ -101,17 +109,18 @@ public class FileController {
      * перематывать, не скачивая файл целиком. Ответ пишется прямо в соединение, без накопления в памяти.
      */
     @GetMapping("/{mediaId}/content")
-    public void content(@PathVariable UUID mediaId, @RequestParam long expires,
+    public void content(@PathVariable UUID mediaId,
+                        @RequestParam(defaultValue = "original") String variant, @RequestParam long expires,
                         @RequestParam(defaultValue = "false") boolean download, @RequestParam String signature,
                         HttpServletRequest request, HttpServletResponse response) throws IOException {
-        StoredFile file = files.fileByLink(mediaId, expires, download, signature);
-        long size = file.getReceivedSize();
+        Content file = files.contentByLink(mediaId, VariantKind.fromPath(variant), expires, download, signature);
+        long size = file.size();
 
         response.setHeader(HttpHeaders.ACCEPT_RANGES, "bytes");
-        response.setContentType(file.getContentType());
+        response.setContentType(file.contentType());
         response.setHeader("X-Content-Type-Options", "nosniff");
         ContentDisposition disposition = (download ? ContentDisposition.attachment() : ContentDisposition.inline())
-                .filename(file.getOriginalFilename(), StandardCharsets.UTF_8).build();
+                .filename(file.filename(), StandardCharsets.UTF_8).build();
         response.setHeader(HttpHeaders.CONTENT_DISPOSITION, disposition.toString());
         // Кэшировать можно только в браузере пользователя и не дольше срока ссылки
         long maxAge = Math.max(0, Math.min(Duration.ofHours(1).toSeconds(), expires - Instant.now().getEpochSecond()));
@@ -152,6 +161,7 @@ public class FileController {
         }
     }
 
-    public record LinkRequest(boolean download) {
+    /** Оба поля необязательны: по умолчанию ссылка на просмотр исходного файла. */
+    public record LinkRequest(Boolean download, String variant) {
     }
 }

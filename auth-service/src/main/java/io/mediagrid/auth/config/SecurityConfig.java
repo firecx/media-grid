@@ -35,10 +35,13 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/refresh", "/api/auth/logout")
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/auth/jwks").permitAll()
+                        // Токен службы: имя и секрет проверяет ServiceTokenController
+                        .requestMatchers(HttpMethod.POST, "/internal/auth/token").permitAll()
                         .requestMatchers("/actuator/health/**", "/actuator/info", "/error").permitAll()
                         // Административные функции отделены от пользовательских (ТЗ, п. 4.1.8)
                         .requestMatchers("/api/auth/admin/**").hasRole("ADMIN")
-                        .anyRequest().authenticated())
+                        .requestMatchers("/api/auth/**").hasAnyRole(ResourceServerSecurity.USER_ROLES)
+                        .anyRequest().denyAll())
                 .build();
     }
 

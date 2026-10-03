@@ -54,7 +54,8 @@ public class SecurityConfig {
                         .pathMatchers("/actuator/**").permitAll()
                         // Административные функции всех служб — по единому пути /api/<раздел>/admin/**
                         .pathMatchers("/api/*/admin/**").hasRole("ADMIN")
-                        .pathMatchers("/api/**").authenticated()
+                        // Токен службы (роль SERVICE) снаружи бесполезен: пути /api/** — только для людей
+                        .pathMatchers("/api/**").hasAnyRole("USER", "ADMIN")
                         .anyExchange().denyAll())
                 .oauth2ResourceServer(rs -> rs
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))

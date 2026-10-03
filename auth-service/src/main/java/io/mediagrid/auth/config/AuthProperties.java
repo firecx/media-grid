@@ -1,6 +1,7 @@
 package io.mediagrid.auth.config;
 
 import java.time.Duration;
+import java.util.Map;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
@@ -12,7 +13,9 @@ public record AuthProperties(
         @DefaultValue("15m") Duration accessTokenTtl,
         @DefaultValue("30d") Duration refreshTokenTtl,
         @DefaultValue Cookie cookie,
-        @DefaultValue BootstrapAdmin bootstrapAdmin) {
+        @DefaultValue BootstrapAdmin bootstrapAdmin,
+        // Службы, которым выдаётся токен с ролью SERVICE: имя службы → её секрет. Пустой секрет — вход закрыт
+        @DefaultValue Map<String, String> serviceClients) {
 
     /** Куки с обновляемым токеном. secure=false допустимо только для отладки без защищённого канала. */
     public record Cookie(

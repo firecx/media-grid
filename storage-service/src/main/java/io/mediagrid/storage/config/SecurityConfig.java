@@ -22,7 +22,9 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health/**", "/actuator/info", "/error").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/files/*/content").permitAll()
                         .requestMatchers(HttpMethod.HEAD, "/api/files/*/content").permitAll()
-                        .requestMatchers("/api/files/**").authenticated()
+                        .requestMatchers("/api/files/**").hasAnyRole(ResourceServerSecurity.USER_ROLES)
+                        // Обмен файлами со службой обработки — только по токену службы
+                        .requestMatchers("/internal/**").hasRole(ResourceServerSecurity.SERVICE_ROLE)
                         .anyRequest().denyAll())
                 .build();
     }

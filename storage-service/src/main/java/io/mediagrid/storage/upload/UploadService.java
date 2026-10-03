@@ -157,7 +157,7 @@ public class UploadService {
     }
 
     private static FileUploadedEvent uploadedEvent(StoredFile file) {
-        return new FileUploadedEvent(file.getMediaId(), file.getStorageKey(), file.getContentType(),
+        return new FileUploadedEvent(file.getMediaId(), file.getOwnerId(), file.getContentType(),
                 file.getReceivedSize());
     }
 

@@ -141,11 +141,11 @@ class MediaServiceTest {
         UUID id = createdId(alice, "Клип", "video/mp4", "PRIVATE");
 
         rabbit.convertAndSend(Events.EXCHANGE, Events.FILE_UPLOADED,
-                new FileUploadedEvent(id, "key", "video/mp4", 1024));
+                new FileUploadedEvent(id, alice, "video/mp4", 1024));
         awaitStatus(alice, id, "UPLOADED");
 
         rabbit.convertAndSend(Events.EXCHANGE, Events.PROCESSING_COMPLETED,
-                new ProcessingCompletedEvent(id, true, "preview-key", null));
+                new ProcessingCompletedEvent(id, true, true, null));
         awaitStatus(alice, id, "READY");
         mvc.perform(get("/api/media/" + id).header(HttpHeaders.AUTHORIZATION, user(alice)))
                 .andExpect(jsonPath("$.hasPreview").value(true))
@@ -153,13 +153,36 @@ class MediaServiceTest {
     }
 
     @Test
+    void processingResultArrivingBeforeUploadEventStillCompletesRecord() throws Exception {
+        UUID id = createdId(alice, "Быстрое фото", "image/jpeg", "PRIVATE");
+
+        rabbit.convertAndSend(Events.EXCHANGE, Events.PROCESSING_COMPLETED,
+                new ProcessingCompletedEvent(id, true, true, null));
+        awaitStatus(alice, id, "READY");
+        mvc.perform(get("/api/media/" + id).header(HttpHeaders.AUTHORIZATION, user(alice)))
+                .andExpect(jsonPath("$.uploadedAt").isNotEmpty());
+
+        // Запоздавшее событие о загрузке статус не откатывает
+        rabbit.convertAndSend(Events.EXCHANGE, Events.FILE_UPLOADED, new FileUploadedEvent(id, alice, "image/jpeg", 1));
+        Thread.sleep(500);
+        awaitStatus(alice, id, "READY");
+    }
+
+    @Test
+    void serviceTokenIsNotAcceptedOnUserPaths() throws Exception {
+        mvc.perform(get("/api/media").header(HttpHeaders.AUTHORIZATION, TestTokens.service("processing-service")))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
+    @Test
     void failedProcessingKeepsFileAvailable() throws Exception {
         UUID id = createdId(alice, "Битый клип", "video/mp4", "PRIVATE");
-        rabbit.convertAndSend(Events.EXCHANGE, Events.FILE_UPLOADED, new FileUploadedEvent(id, "k", "video/mp4", 1));
+        rabbit.convertAndSend(Events.EXCHANGE, Events.FILE_UPLOADED, new FileUploadedEvent(id, alice, "video/mp4", 1));
         awaitStatus(alice, id, "UPLOADED");
 
         rabbit.convertAndSend(Events.EXCHANGE, Events.PROCESSING_COMPLETED,
-                new ProcessingCompletedEvent(id, false, null, "ffmpeg: неизвестный кодек"));
+                new ProcessingCompletedEvent(id, false, false, "ffmpeg: неизвестный кодек"));
         awaitStatus(alice, id, "FAILED");
         mvc.perform(get("/api/media/" + id).header(HttpHeaders.AUTHORIZATION, user(alice)))
                 .andExpect(jsonPath("$.processingError").value("ffmpeg: неизвестный кодек"));
@@ -169,7 +192,7 @@ class MediaServiceTest {
     void uploadForDeletedRecordAsksStorageToRemoveFile() {
         UUID unknown = UUID.randomUUID();
         rabbit.convertAndSend(Events.EXCHANGE, Events.FILE_UPLOADED,
-                new FileUploadedEvent(unknown, "k", "video/mp4", 1));
+                new FileUploadedEvent(unknown, UUID.randomUUID(), "video/mp4", 1));
         assertThat(receiveDeleted()).isEqualTo(new MediaDeletedEvent(unknown));
     }
 
@@ -323,7 +346,7 @@ class MediaServiceTest {
             throws Exception {
         UUID id = createdId(owner, title, contentType, visibility, tags);
         rabbit.convertAndSend(Events.EXCHANGE, Events.FILE_UPLOADED,
-                new FileUploadedEvent(id, "key", contentType, 1024));
+                new FileUploadedEvent(id, owner, contentType, 1024));
         awaitStatus(owner, id, "UPLOADED");
         return id;
     }

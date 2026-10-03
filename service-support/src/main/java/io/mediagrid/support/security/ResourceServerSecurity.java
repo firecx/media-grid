@@ -26,6 +26,15 @@ public final class ResourceServerSecurity {
     /** Утверждение со списком ролей в токене службы авторизации. */
     public static final String ROLES_CLAIM = "roles";
 
+    /** Роли людей. Пользовательские пути /api/** — только для них: у токена службы нет пользователя. */
+    public static final String[] USER_ROLES = {"USER", "ADMIN"};
+
+    /**
+     * Роль служб (токен выдаёт служба авторизации по секрету службы). Открывает только внутренние
+     * пути /internal/**, которые шлюз наружу не пропускает.
+     */
+    public static final String SERVICE_ROLE = "SERVICE";
+
     private static final Logger log = LoggerFactory.getLogger(ResourceServerSecurity.class);
 
     private ResourceServerSecurity() {

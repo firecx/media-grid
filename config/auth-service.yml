@@ -39,3 +39,7 @@ mediagrid:
     bootstrap-admin:
       email: ${ADMIN_EMAIL:}
       password: ${ADMIN_PASSWORD:}
+    # Службы, которым выдаётся токен с ролью SERVICE (POST /internal/auth/token, только внутри сети).
+    # Секрет — не короче 32 символов; пустой — вход службе закрыт
+    service-clients:
+      processing-service: ${PROCESSING_CLIENT_SECRET:}

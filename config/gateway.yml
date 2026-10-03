@@ -10,6 +10,10 @@ spring:
     gateway:
       server:
         webflux:
+          httpclient:
+            # Остановленная служба может ещё числиться в регистре: не ждать соединения 30 секунд,
+            # а сразу ответить 503. Время ответа не ограничивается — файлы передаются долго
+            connect-timeout: 2000
           routes:
             - id: auth
               uri: lb://auth-service
@@ -23,6 +27,10 @@ spring:
               uri: lb://storage-service
               predicates:
                 - Path=/api/files/**
+            - id: processing
+              uri: lb://processing-service
+              predicates:
+                - Path=/api/processing/**
 
 management:
   endpoints:

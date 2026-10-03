@@ -20,7 +20,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health/**", "/actuator/info", "/error").permitAll()
                         .requestMatchers("/api/media/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/media/**").authenticated()
+                        .requestMatchers("/api/media/**").hasAnyRole(ResourceServerSecurity.USER_ROLES)
                         .anyRequest().denyAll())
                 .build();
     }

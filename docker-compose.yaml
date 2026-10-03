@@ -38,7 +38,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: discovery/Dockerfile
-    image: mediagrid/discovery:${MEDIAGRID_VERSION:-0.6.0}
+    image: mediagrid/discovery:${MEDIAGRID_VERSION:-0.7.0}
     restart: unless-stopped
     ports:
       - "8761:8761"
@@ -53,7 +53,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: config-server/Dockerfile
-    image: mediagrid/config-server:${MEDIAGRID_VERSION:-0.6.0}
+    image: mediagrid/config-server:${MEDIAGRID_VERSION:-0.7.0}
     restart: unless-stopped
     environment:
       EUREKA_URL: http://discovery:8761/eureka
@@ -75,7 +75,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: gateway/Dockerfile
-    image: mediagrid/gateway:${MEDIAGRID_VERSION:-0.6.0}
+    image: mediagrid/gateway:${MEDIAGRID_VERSION:-0.7.0}
     restart: unless-stopped
     environment:
       CONFIG_URL: http://config-server:8888
@@ -95,7 +95,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: auth-service/Dockerfile
-    image: mediagrid/auth-service:${MEDIAGRID_VERSION:-0.6.0}
+    image: mediagrid/auth-service:${MEDIAGRID_VERSION:-0.7.0}
     restart: unless-stopped
     environment:
       CONFIG_URL: http://config-server:8888
@@ -106,6 +106,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       ADMIN_EMAIL: ${ADMIN_EMAIL}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      # Секреты служб, которым выдаётся токен службы
+      PROCESSING_CLIENT_SECRET: ${PROCESSING_CLIENT_SECRET}
     # Порт наружу не публикуется: запросы приходят только через шлюз
     depends_on:
       postgres: { condition: service_healthy }
@@ -121,7 +123,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: media-service/Dockerfile
-    image: mediagrid/media-service:${MEDIAGRID_VERSION:-0.6.0}
+    image: mediagrid/media-service:${MEDIAGRID_VERSION:-0.7.0}
     restart: unless-stopped
     environment:
       CONFIG_URL: http://config-server:8888
@@ -149,7 +151,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: storage-service/Dockerfile
-    image: mediagrid/storage-service:${MEDIAGRID_VERSION:-0.6.0}
+    image: mediagrid/storage-service:${MEDIAGRID_VERSION:-0.7.0}
     restart: unless-stopped
     environment:
       CONFIG_URL: http://config-server:8888
@@ -178,8 +180,43 @@ services:
       retries: 10
       start_period: 40s
 
+  processing-service:
+    build:
+      context: .                          # корень репозитория: нужен модуль common
+      dockerfile: processing-service/Dockerfile
+    image: mediagrid/processing-service:${MEDIAGRID_VERSION:-0.7.0}
+    restart: unless-stopped
+    environment:
+      CONFIG_URL: http://config-server:8888
+      EUREKA_URL: http://discovery:8761/eureka
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      PROCESSING_WORK_DIR: /data/processing
+      PROCESSING_CLIENT_SECRET: ${PROCESSING_CLIENT_SECRET}
+    volumes:
+      # Временные файлы обработки (исходник и результаты на время задачи); очищается при запуске
+      - processing-work:/data/processing
+    # Порт наружу не публикуется: ход обработки запрашивается только через шлюз.
+    # Остановка службы не мешает загрузке и просмотру (ТЗ, п. 4.1.4): задачи ждут в очереди
+    depends_on:
+      postgres: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+      config-server: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8400/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
   # Службы добавляются сюда по мере готовности, по образцу auth-service.
 
 volumes:
   postgres-data:
   storage-data:
+  processing-work:

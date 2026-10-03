@@ -38,12 +38,21 @@ final class TestTokens {
     }
 
     static String bearer(UUID userId, String role) {
+        return bearer(userId.toString(), role);
+    }
+
+    /** Токен службы: вместо номера пользователя — имя службы, роль SERVICE. */
+    static String service(String name) {
+        return bearer(name, "SERVICE");
+    }
+
+    private static String bearer(String subject, String role) {
         RSAKey key = new RSAKey.Builder((RSAPublicKey) KEYS.getPublic())
                 .privateKey((RSAPrivateKey) KEYS.getPrivate()).keyID("test").build();
         Instant now = Instant.now();
         JwtClaimsSet claims = JwtClaimsSet.builder()
                 .issuer(ISSUER)
-                .subject(userId.toString())
+                .subject(subject)
                 .issuedAt(now)
                 .expiresAt(now.plus(Duration.ofMinutes(15)))
                 .claim("roles", List.of(role))

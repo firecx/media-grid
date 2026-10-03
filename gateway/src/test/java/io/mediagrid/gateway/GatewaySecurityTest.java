@@ -101,6 +101,17 @@ class GatewaySecurityTest {
     }
 
     @Test
+    void serviceTokenDoesNotOpenUserPathsOrInternalPaths() {
+        client.get().uri("/api/media/1").header(HttpHeaders.AUTHORIZATION, bearer(token("SERVICE")))
+                .exchange()
+                .expectStatus().isForbidden();
+        // Внутренние пути служб наружу не выпускаются ни с каким токеном
+        client.post().uri("/internal/auth/token").header(HttpHeaders.AUTHORIZATION, bearer(token("ADMIN")))
+                .exchange()
+                .expectStatus().isForbidden();
+    }
+
+    @Test
     void otherAuthEndpointsNeedToken() {
         client.get().uri("/api/auth/me").exchange().expectStatus().isUnauthorized();
         client.get().uri("/api/auth/login").exchange().expectStatus().isUnauthorized();
