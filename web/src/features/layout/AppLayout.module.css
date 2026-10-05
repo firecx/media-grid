@@ -1,0 +1,72 @@
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--mg-color-surface);
+  border-bottom: 1px solid var(--mg-color-border);
+}
+
+.inner {
+  max-width: var(--mg-content-width);
+  margin: 0 auto;
+  min-height: var(--mg-header-height);
+  padding: 0 var(--mg-space-md);
+  display: flex;
+  align-items: center;
+  gap: var(--mg-space-lg);
+  flex-wrap: wrap;
+}
+
+.brand {
+  font-weight: 700;
+  font-size: 1.125rem;
+  color: var(--mg-color-text);
+  text-decoration: none;
+}
+
+.nav {
+  display: flex;
+  gap: var(--mg-space-xs);
+  flex: 1;
+  overflow-x: auto;
+}
+
+.link {
+  padding: var(--mg-space-sm) var(--mg-space-md);
+  border-radius: var(--mg-radius);
+  color: var(--mg-color-muted);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.link:hover {
+  color: var(--mg-color-text);
+}
+
+.active {
+  color: var(--mg-color-accent);
+  font-weight: 600;
+}
+
+.tools {
+  display: flex;
+  align-items: center;
+  gap: var(--mg-space-xs);
+}
+
+/* На телефоне разделы уходят второй строкой на всю ширину */
+@media (max-width: 48em) {
+  .inner {
+    gap: var(--mg-space-sm);
+    padding-top: var(--mg-space-sm);
+  }
+
+  .nav {
+    order: 3;
+    flex-basis: 100%;
+  }
+
+  .tools {
+    margin-left: auto;
+  }
+}

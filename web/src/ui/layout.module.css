@@ -1,0 +1,49 @@
+.stack {
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--grid-min, 220px), 1fr));
+}
+
+.card {
+  background: var(--mg-color-surface);
+  border: 1px solid var(--mg-color-border);
+  border-radius: var(--mg-radius);
+  padding: var(--mg-space-md);
+}
+
+.page {
+  max-width: var(--mg-content-width);
+  margin: 0 auto;
+  padding: var(--mg-space-lg) var(--mg-space-md);
+}
+
+.title {
+  margin: 0;
+  color: var(--mg-color-text);
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.text {
+  margin: 0;
+  color: var(--mg-color-text);
+}
+
+.muted {
+  color: var(--mg-color-muted);
+}
+
+.small {
+  font-size: 0.875rem;
+}

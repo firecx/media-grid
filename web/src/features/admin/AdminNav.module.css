@@ -1,0 +1,21 @@
+.tabs {
+  border-bottom: 1px solid var(--mg-color-border);
+}
+
+.tab {
+  padding: var(--mg-space-sm) var(--mg-space-md);
+  color: var(--mg-color-muted);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.tab:hover {
+  color: var(--mg-color-text);
+}
+
+.active {
+  color: var(--mg-color-accent);
+  border-bottom-color: var(--mg-color-accent);
+  font-weight: 600;
+}

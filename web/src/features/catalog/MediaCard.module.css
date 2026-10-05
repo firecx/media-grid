@@ -1,0 +1,38 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  background: var(--mg-color-surface);
+  border: 1px solid var(--mg-color-border);
+  border-radius: var(--mg-radius);
+  overflow: hidden;
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.15s, transform 0.15s;
+}
+
+.card:hover,
+.card:focus-visible {
+  border-color: var(--mg-color-accent);
+  transform: translateY(-2px);
+}
+
+.thumb {
+  aspect-ratio: 16 / 10;
+  display: grid;
+  place-items: center;
+  background: var(--mg-color-thumb-bg);
+  color: var(--mg-color-muted);
+}
+
+.thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mg-space-sm);
+  padding: var(--mg-space-sm) var(--mg-space-md) var(--mg-space-md);
+}

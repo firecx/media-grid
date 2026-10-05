@@ -1,0 +1,26 @@
+/*
+ * Собственные переменные оформления. Страницы и модули CSS опираются только на них, а не на переменные
+ * Mantine: при переходе на свои стили эти значения останутся, сменится лишь их источник.
+ * light-dark() выбирает значение по текущей схеме (color-scheme), которую выставляет переключатель темы.
+ */
+:root {
+  --mg-font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  --mg-space-xs: 4px;
+  --mg-space-sm: 8px;
+  --mg-space-md: 16px;
+  --mg-space-lg: 24px;
+  --mg-space-xl: 32px;
+
+  --mg-radius: 8px;
+  --mg-header-height: 56px;
+  --mg-content-width: 1280px;
+
+  --mg-color-bg: light-dark(#f6f7f9, #16181d);
+  --mg-color-surface: light-dark(#ffffff, #1f2229);
+  --mg-color-border: light-dark(#dfe2e7, #2f333c);
+  --mg-color-text: light-dark(#1b1e24, #e6e8ec);
+  --mg-color-muted: light-dark(#5f6672, #9aa1ad);
+  --mg-color-accent: light-dark(#4c5fd5, #8b9bff);
+  --mg-color-thumb-bg: light-dark(#e8eaee, #262a32);
+}

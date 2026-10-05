@@ -1,0 +1,20 @@
+html,
+body {
+  margin: 0;
+  background: var(--mg-color-bg);
+  color: var(--mg-color-text);
+  font-family: var(--mg-font);
+}
+
+/* light-dark() в tokens.css следует за схемой, которую выбирает переключатель темы */
+:root[data-mantine-color-scheme='light'] {
+  color-scheme: light;
+}
+
+:root[data-mantine-color-scheme='dark'] {
+  color-scheme: dark;
+}
+
+a {
+  color: var(--mg-color-accent);
+}

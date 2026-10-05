@@ -38,7 +38,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: discovery/Dockerfile
-    image: mediagrid/discovery:${MEDIAGRID_VERSION:-0.7.0}
+    image: mediagrid/discovery:${MEDIAGRID_VERSION:-0.8.0-SNAPSHOT}
     restart: unless-stopped
     ports:
       - "8761:8761"
@@ -53,7 +53,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: config-server/Dockerfile
-    image: mediagrid/config-server:${MEDIAGRID_VERSION:-0.7.0}
+    image: mediagrid/config-server:${MEDIAGRID_VERSION:-0.8.0-SNAPSHOT}
     restart: unless-stopped
     environment:
       EUREKA_URL: http://discovery:8761/eureka
@@ -75,13 +75,12 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: gateway/Dockerfile
-    image: mediagrid/gateway:${MEDIAGRID_VERSION:-0.7.0}
+    image: mediagrid/gateway:${MEDIAGRID_VERSION:-0.8.0-SNAPSHOT}
     restart: unless-stopped
     environment:
       CONFIG_URL: http://config-server:8888
       EUREKA_URL: http://discovery:8761/eureka
-    ports:
-      - "8080:8080"                       # служебный порт 8081 наружу не публикуется
+    # Наружу не публикуется: браузер обращается к web (nginx), тот передаёт /api шлюзу
     depends_on:
       config-server: { condition: service_healthy }
     healthcheck:
@@ -95,7 +94,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: auth-service/Dockerfile
-    image: mediagrid/auth-service:${MEDIAGRID_VERSION:-0.7.0}
+    image: mediagrid/auth-service:${MEDIAGRID_VERSION:-0.8.0-SNAPSHOT}
     restart: unless-stopped
     environment:
       CONFIG_URL: http://config-server:8888
@@ -123,7 +122,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: media-service/Dockerfile
-    image: mediagrid/media-service:${MEDIAGRID_VERSION:-0.7.0}
+    image: mediagrid/media-service:${MEDIAGRID_VERSION:-0.8.0-SNAPSHOT}
     restart: unless-stopped
     environment:
       CONFIG_URL: http://config-server:8888
@@ -151,7 +150,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: storage-service/Dockerfile
-    image: mediagrid/storage-service:${MEDIAGRID_VERSION:-0.7.0}
+    image: mediagrid/storage-service:${MEDIAGRID_VERSION:-0.8.0-SNAPSHOT}
     restart: unless-stopped
     environment:
       CONFIG_URL: http://config-server:8888
@@ -184,7 +183,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: processing-service/Dockerfile
-    image: mediagrid/processing-service:${MEDIAGRID_VERSION:-0.7.0}
+    image: mediagrid/processing-service:${MEDIAGRID_VERSION:-0.8.0-SNAPSHOT}
     restart: unless-stopped
     environment:
       CONFIG_URL: http://config-server:8888
@@ -213,6 +212,25 @@ services:
       timeout: 5s
       retries: 10
       start_period: 40s
+
+  web:
+    build:
+      context: ./web                      # интерфейсу не нужны модули Maven
+    image: mediagrid/web:${MEDIAGRID_VERSION:-0.8.0-SNAPSHOT}
+    restart: unless-stopped
+    environment:
+      GATEWAY_ADDRESS: gateway:8080
+    ports:
+      # Единственный порт системы, открытый наружу: интерфейс и /api
+      - "${MEDIAGRID_HTTP_PORT:-8080}:80"
+    depends_on:
+      gateway: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/healthz | grep -q ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
 
   # Службы добавляются сюда по мере готовности, по образцу auth-service.
 
