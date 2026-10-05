@@ -1,0 +1,49 @@
+# Профиль для небольшого сервера (2 vCPU, 3–4 ГБ памяти). Подключается поверх основного файла:
+#   docker compose -f docker-compose.yaml -f docker-compose.small.yaml up -d
+# Проверено на 2 ядрах и 3 ГБ без подкачки: 50 пользователей без ошибок, перекодирование Full HD
+# под нагрузкой. В 2 ГБ система не помещается ни с какими настройками (см. README, «Требования к серверу»).
+#
+# Java: небольшая куча, сборщик Serial (без фоновых потоков), только быстрый компилятор C1 (меньше
+# памяти и процессора на компиляцию ценой немного меньшей скорости), уменьшенные стеки и кэш кода.
+# При нехватке кучи служба завершается и перезапускается (restart: unless-stopped), а не зависает.
+# Пределов памяти на отдельные контейнеры нет: Java-служба на Spring Cloud занимает 165–285 МБ при любой
+# куче, и предел ниже этого приводит к завершениям по кругу.
+
+services:
+  discovery:
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx80m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss256k -XX:ReservedCodeCacheSize=40m -XX:MaxMetaspaceSize=160m -XX:+ExitOnOutOfMemoryError"
+
+  config-server:
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx64m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss256k -XX:ReservedCodeCacheSize=40m -XX:MaxMetaspaceSize=160m -XX:+ExitOnOutOfMemoryError"
+
+  gateway:
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx96m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss256k -XX:ReservedCodeCacheSize=40m -XX:MaxMetaspaceSize=160m -XX:+ExitOnOutOfMemoryError"
+
+  auth-service:
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx96m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss256k -XX:ReservedCodeCacheSize=40m -XX:MaxMetaspaceSize=160m -XX:+ExitOnOutOfMemoryError"
+
+  media-service:
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx128m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss256k -XX:ReservedCodeCacheSize=40m -XX:MaxMetaspaceSize=160m -XX:+ExitOnOutOfMemoryError"
+
+  storage-service:
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx112m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss256k -XX:ReservedCodeCacheSize=40m -XX:MaxMetaspaceSize=160m -XX:+ExitOnOutOfMemoryError"
+
+  processing-service:
+    environment:
+      # Куча Java маленькая: основную память при обработке берёт ffmpeg (до ~750 МБ на Full HD)
+      JAVA_TOOL_OPTIONS: "-Xmx112m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss256k -XX:ReservedCodeCacheSize=40m -XX:MaxMetaspaceSize=160m -XX:+ExitOnOutOfMemoryError"
+
+  postgres:
+    # Буфер 64 МБ вместо 128: данных у системы немного (каталог, задачи, пользователи)
+    command: ["postgres", "-c", "shared_buffers=64MB", "-c", "max_connections=80"]
+
+  rabbitmq:
+    environment:
+      # Без активного ожидания планировщиков Erlang: без этого шина периодически занимает ядра впустую
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "+sbwt none +sbwtdcpu none +sbwtdio none"

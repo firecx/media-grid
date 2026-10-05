@@ -14,7 +14,8 @@ import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.mediagrid.processing.config.ProcessingProperties;
 import io.mediagrid.processing.job.JobFailure;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.cloud.client.loadbalancer.LoadBalanced;
+import org.springframework.cloud.client.ServiceInstance;
+import org.springframework.cloud.client.loadbalancer.LoadBalancerClient;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
@@ -26,27 +27,35 @@ import org.springframework.web.client.RestClientException;
 /**
  * Внутренний интерфейс службы хранения (/internal/files) с токеном службы. Файлы идут потоком
  * между диском и сетью, не накапливаясь в памяти: исходные видео бывают в десятки гигабайт.
+ * <p>
+ * Экземпляр службы выбирается у балансировщика явно, а запрос идёт клиентом без перехватчиков.
+ * Клиент с перехватчиком балансировщика (@LoadBalanced) в Spring собирает тело запроса целиком в памяти
+ * (InterceptingClientHttpRequest — буферизующий запрос): перекодированное видео уронило бы службу
+ * с OutOfMemoryError.
  */
 @Component
 public class StorageClient {
 
+    static final String SERVICE = "storage-service";
+
     private final RestClient rest;
+    private final LoadBalancerClient loadBalancer;
     private final ServiceTokens tokens;
     private final CircuitBreaker breaker;
 
-    public StorageClient(@LoadBalanced RestClient.Builder serviceRestClientBuilder, ServiceTokens tokens,
+    public StorageClient(LoadBalancerClient loadBalancer, ServiceTokens tokens,
                          @Qualifier("storageBreaker") CircuitBreaker breaker, ProcessingProperties properties) {
-        this.rest = serviceRestClientBuilder.clone()
-                .baseUrl("http://storage-service")
+        this.rest = RestClient.builder()
                 .requestFactory(ClientSetup.requestFactory(Duration.ofSeconds(5), properties.transferTimeout()))
                 .build();
+        this.loadBalancer = loadBalancer;
         this.tokens = tokens;
         this.breaker = breaker;
     }
 
     /** Исходный файл — в target. Записи больше нет — {@link JobFailure.Gone}. */
     public void downloadOriginal(UUID mediaId, Path target) {
-        call(() -> rest.get().uri("/internal/files/{id}", mediaId)
+        call(() -> rest.get().uri(storage("/internal/files/{id}"), mediaId)
                 .header(HttpHeaders.AUTHORIZATION, tokens.bearer())
                 .exchange((request, response) -> {
                     check(response.getStatusCode(), "получение исходного файла");
@@ -66,7 +75,7 @@ public class StorageClient {
             } catch (IOException e) {
                 throw new JobFailure.Permanent("Нет файла результата " + file.getFileName());
             }
-            return rest.put().uri("/internal/files/{id}/variants/{kind}", mediaId, kind)
+            return rest.put().uri(storage("/internal/files/{id}/variants/{kind}"), mediaId, kind)
                     .header(HttpHeaders.AUTHORIZATION, tokens.bearer())
                     .contentType(MediaType.parseMediaType(contentType))
                     .contentLength(size)
@@ -76,6 +85,15 @@ public class StorageClient {
                         return null;
                     });
         });
+    }
+
+    /** Шаблон адреса у выбранного балансировщиком экземпляра службы хранения. */
+    private String storage(String path) {
+        ServiceInstance instance = loadBalancer.choose(SERVICE);
+        if (instance == null) {
+            throw new JobFailure.Transient("Служба хранения не найдена в регистре служб");
+        }
+        return instance.getUri() + path;
     }
 
     /**
