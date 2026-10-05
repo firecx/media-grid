@@ -1,0 +1,27 @@
+# Отладка: открывает служебные порты, но только для этой машины (127.0.0.1), не для сети.
+# Подключается явно, поверх основного файла:
+#   docker compose -f docker-compose.yaml -f docker-compose.debug.yaml up -d
+# В работе системы эти порты не нужны: службы общаются внутри сети docker, браузер — через web.
+# Имя не docker-compose.override.yaml намеренно: такой файл docker compose подключает сам.
+
+services:
+  postgres:
+    ports:
+      - "127.0.0.1:5432:5432"             # база: psql, средства просмотра
+
+  rabbitmq:
+    ports:
+      - "127.0.0.1:5672:5672"             # шина
+      - "127.0.0.1:15672:15672"           # панель управления: http://localhost:15672
+
+  discovery:
+    ports:
+      - "127.0.0.1:8761:8761"             # панель регистра: http://localhost:8761
+
+  config-server:
+    ports:
+      - "127.0.0.1:8888:8888"             # настройки служб: http://localhost:8888/<служба>/default
+
+  gateway:
+    ports:
+      - "127.0.0.1:8081:8081"             # служебные точки шлюза: /actuator/gateway/routes

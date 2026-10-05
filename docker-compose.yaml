@@ -11,8 +11,7 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql
       - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    ports:
-      - "5432:5432"
+    # Порт наружу не публикуется; для отладки — docker-compose.debug.yaml
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
@@ -25,9 +24,7 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
-    ports:
-      - "5672:5672"
-      - "15672:15672"
+    # Порты наружу не публикуются; панель управления для отладки — docker-compose.debug.yaml
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 10s
@@ -40,8 +37,7 @@ services:
       dockerfile: discovery/Dockerfile
     image: mediagrid/discovery:${MEDIAGRID_VERSION:-0.8.0-SNAPSHOT}
     restart: unless-stopped
-    ports:
-      - "8761:8761"
+    # Порт наружу не публикуется; панель регистра для отладки — docker-compose.debug.yaml
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8761/actuator/health | grep -q UP"]
       interval: 10s
@@ -60,8 +56,7 @@ services:
       CONFIG_LOCATION: file:/config/
     volumes:
       - ./config:/config:ro
-    ports:
-      - "8888:8888"
+    # Порт наружу не публикуется: настройки нужны только службам; для отладки — docker-compose.debug.yaml
     depends_on:
       discovery: { condition: service_healthy }
     healthcheck:
@@ -222,7 +217,7 @@ services:
       GATEWAY_ADDRESS: gateway:8080
     ports:
       # Единственный порт системы, открытый наружу: интерфейс и /api
-      - "${MEDIAGRID_HTTP_PORT:-8080}:80"
+      - "${MEDIAGRID_HTTP_PORT:-80}:80"
     depends_on:
       gateway: { condition: service_healthy }
     healthcheck:

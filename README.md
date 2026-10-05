@@ -24,7 +24,7 @@
 - `media-service/` — служба медиаданных, порт 8200 (только через шлюз). Описание — в [media-service/README.md](media-service/README.md)
 - `storage-service/` — служба загрузки и хранения файлов, порт 8300 (только через шлюз). Описание — в [storage-service/README.md](storage-service/README.md)
 - `processing-service/` — служба обработки (миниатюры, превью, перекодирование через ffmpeg; очередь задач), порт 8400 (только через шлюз). Описание — в [processing-service/README.md](processing-service/README.md)
-- `web/` — веб-интерфейс и nginx, единственная точка входа для браузера (порт `MEDIAGRID_HTTP_PORT`, по умолчанию 8080): отдаёт интерфейс, `/api` передаёт шлюзу. Описание — в [web/README.md](web/README.md)
+- `web/` — веб-интерфейс и nginx, единственная точка входа для браузера (порт `MEDIAGRID_HTTP_PORT`, по умолчанию 80): отдаёт интерфейс, `/api` передаёт шлюзу. Описание — в [web/README.md](web/README.md)
 - `gateway/` — шлюз, порт 8080 внутри сети (наружу не публикуется). Запросы `/api/<раздел>/**` передаются службам: `auth` — авторизации, `media` — медиаданных, `files` — загрузки и хранения, `processing` — обработки. Маршруты — в `config/gateway.yml`. Шлюз проверяет токен доступа до передачи запроса: без токена доступны только вход, обновление, выход и выдача файла по подписанной ссылке; пути `/api/<раздел>/admin/**` — только администратору
 - `config/` — настройки служб, которые раздаёт центр конфигурации: `application.yml` — общие для всех, `<имя службы>.yml` — для отдельной службы. Пароли здесь не хранятся, только подстановки вида `${POSTGRES_PASSWORD}`
 - `common/` — общие контракты (события очереди, формат ошибок), без бизнес-логики
@@ -42,7 +42,21 @@ cp .env.example .env     # замените пароли и секреты (STOR
 docker compose up -d
 ```
 
-Интерфейс — http://localhost:8080, вход — `ADMIN_EMAIL` и `ADMIN_PASSWORD` из `.env`.
+Интерфейс — http://localhost, вход — `ADMIN_EMAIL` и `ADMIN_PASSWORD` из `.env`. Если порт 80 занят, задайте другой в `MEDIAGRID_HTTP_PORT`.
+
+Наружу открыт только этот порт. База, шина, регистр служб и центр конфигурации доступны лишь внутри сети Docker. Чтобы заглянуть в них при отладке, подключите `docker-compose.debug.yaml`: он открывает служебные порты, но только для этой машины (`127.0.0.1`):
+
+```
+docker compose -f docker-compose.yaml -f docker-compose.debug.yaml up -d
+```
+
+| Что | Адрес при отладке |
+| --- | --- |
+| PostgreSQL | `localhost:5432` |
+| RabbitMQ, панель управления | `localhost:5672`, http://localhost:15672 |
+| Регистр служб (Eureka) | http://localhost:8761 |
+| Центр конфигурации | http://localhost:8888/<служба>/default |
+| Служебные точки шлюза | http://localhost:8081/actuator/gateway/routes |
 
 ## Среда разработки
 
