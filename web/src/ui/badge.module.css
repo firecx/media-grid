@@ -1,0 +1,10 @@
+/*
+ * Тёмная тема: прозрачная подложка значка сливалась с карточкой. Здесь подложка плотная (30 % цвета
+ * оттенка поверх поверхности, контраст с карточкой около 2:1), рамка того же цвета (не меньше 3,5:1)
+ * и надпись, высветленная до контраста не меньше 5,3:1. --tone задаёт компонент Badge.
+ */
+:root[data-mantine-color-scheme='dark'] .badge {
+  background: color-mix(in srgb, var(--tone) 30%, var(--mg-color-surface));
+  color: color-mix(in srgb, var(--tone) 80%, #ffffff);
+  border: 1px solid color-mix(in srgb, var(--tone) 60%, var(--mg-color-surface));
+}
