@@ -35,7 +35,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: discovery/Dockerfile
-    image: mediagrid/discovery:${MEDIAGRID_VERSION:-0.8.0-SNAPSHOT}
+    image: mediagrid/discovery:${MEDIAGRID_VERSION:-0.8.0}
     restart: unless-stopped
     # Порт наружу не публикуется; панель регистра для отладки — docker-compose.debug.yaml
     healthcheck:
@@ -49,7 +49,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: config-server/Dockerfile
-    image: mediagrid/config-server:${MEDIAGRID_VERSION:-0.8.0-SNAPSHOT}
+    image: mediagrid/config-server:${MEDIAGRID_VERSION:-0.8.0}
     restart: unless-stopped
     environment:
       EUREKA_URL: http://discovery:8761/eureka
@@ -70,7 +70,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: gateway/Dockerfile
-    image: mediagrid/gateway:${MEDIAGRID_VERSION:-0.8.0-SNAPSHOT}
+    image: mediagrid/gateway:${MEDIAGRID_VERSION:-0.8.0}
     restart: unless-stopped
     environment:
       CONFIG_URL: http://config-server:8888
@@ -89,7 +89,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: auth-service/Dockerfile
-    image: mediagrid/auth-service:${MEDIAGRID_VERSION:-0.8.0-SNAPSHOT}
+    image: mediagrid/auth-service:${MEDIAGRID_VERSION:-0.8.0}
     restart: unless-stopped
     environment:
       CONFIG_URL: http://config-server:8888
@@ -117,7 +117,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: media-service/Dockerfile
-    image: mediagrid/media-service:${MEDIAGRID_VERSION:-0.8.0-SNAPSHOT}
+    image: mediagrid/media-service:${MEDIAGRID_VERSION:-0.8.0}
     restart: unless-stopped
     environment:
       CONFIG_URL: http://config-server:8888
@@ -145,7 +145,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: storage-service/Dockerfile
-    image: mediagrid/storage-service:${MEDIAGRID_VERSION:-0.8.0-SNAPSHOT}
+    image: mediagrid/storage-service:${MEDIAGRID_VERSION:-0.8.0}
     restart: unless-stopped
     environment:
       CONFIG_URL: http://config-server:8888
@@ -178,7 +178,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: processing-service/Dockerfile
-    image: mediagrid/processing-service:${MEDIAGRID_VERSION:-0.8.0-SNAPSHOT}
+    image: mediagrid/processing-service:${MEDIAGRID_VERSION:-0.8.0}
     restart: unless-stopped
     environment:
       CONFIG_URL: http://config-server:8888
@@ -211,13 +211,28 @@ services:
   web:
     build:
       context: ./web                      # интерфейсу не нужны модули Maven
-    image: mediagrid/web:${MEDIAGRID_VERSION:-0.8.0-SNAPSHOT}
+    image: mediagrid/web:${MEDIAGRID_VERSION:-0.8.0}
     restart: unless-stopped
     environment:
       GATEWAY_ADDRESS: gateway:8080
+      # auto — HTTPS (сертификат из certs/ или самоподписанный), off — только HTTP (разработка)
+      MEDIAGRID_TLS: ${MEDIAGRID_TLS:-auto}
+      # Имя сервера для самоподписанного сертификата
+      MEDIAGRID_HOSTNAME: ${MEDIAGRID_HOSTNAME:-localhost}
+      # Порт HTTPS снаружи — для перенаправления с HTTP
+      MEDIAGRID_HTTPS_PORT: ${MEDIAGRID_HTTPS_PORT:-443}
+      # Файлы сертификата и ключа внутри каталога сертификатов (по умолчанию fullchain.pem, privkey.pem)
+      MEDIAGRID_TLS_CERT_FILE: ${MEDIAGRID_TLS_CERT_FILE:-}
+      MEDIAGRID_TLS_KEY_FILE: ${MEDIAGRID_TLS_KEY_FILE:-}
     ports:
-      # Единственный порт системы, открытый наружу: интерфейс и /api
+      # Единственные порты системы, открытые наружу: интерфейс и /api. С 80 — перенаправление на HTTPS
       - "${MEDIAGRID_HTTP_PORT:-80}:80"
+      - "${MEDIAGRID_HTTPS_PORT:-443}:443"
+    volumes:
+      # Сертификат и ключ; если их нет, при запуске создаётся самоподписанный
+      - ${MEDIAGRID_CERTS_DIR:-./certs}:/etc/nginx/certs
+      # Каталог проверки для Let's Encrypt (certbot certonly --webroot -w <этот каталог>)
+      - ${MEDIAGRID_ACME_DIR:-./certs/acme}:/var/www/acme:ro
     depends_on:
       gateway: { condition: service_healthy }
     healthcheck:

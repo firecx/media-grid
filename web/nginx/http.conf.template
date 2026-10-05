@@ -1,0 +1,21 @@
+# Общие настройки уровня http. Подставляется только ${GATEWAY_ADDRESS} (скрипт 40-mediagrid.sh).
+# Единственная точка входа для браузера: интерфейс и /api на одном адресе — куки входа
+# (SameSite=Strict, Path=/api/auth) работают без настроек CORS. Шлюз наружу не публикуется.
+
+# Не больше 10 попыток входа в минуту с одного адреса (с запасом 5 подряд); дальше 429
+limit_req_zone $binary_remote_addr zone=login:10m rate=10r/m;
+limit_req_status 429;
+
+# DNS docker: адрес шлюза перечитывается (resolve), а не запоминается при запуске — перезапуск шлюза
+# с другим адресом не ломает nginx
+resolver 127.0.0.11 valid=10s ipv6=off;
+
+# Соединения со шлюзом держатся открытыми и переиспользуются. Без этого на каждый запрос открывалось
+# новое соединение, и под нагрузкой (сотни запросов в секунду) кончались свободные исходящие порты:
+# connect() failed (99: Address not available) → 503
+upstream gateway {
+    zone gateway 64k;
+    server ${GATEWAY_ADDRESS} resolve;
+    keepalive 64;
+    keepalive_timeout 60s;
+}

@@ -24,7 +24,7 @@
 - `media-service/` — служба медиаданных, порт 8200 (только через шлюз). Описание — в [media-service/README.md](media-service/README.md)
 - `storage-service/` — служба загрузки и хранения файлов, порт 8300 (только через шлюз). Описание — в [storage-service/README.md](storage-service/README.md)
 - `processing-service/` — служба обработки (миниатюры, превью, перекодирование через ffmpeg; очередь задач), порт 8400 (только через шлюз). Описание — в [processing-service/README.md](processing-service/README.md)
-- `web/` — веб-интерфейс и nginx, единственная точка входа для браузера (порт `MEDIAGRID_HTTP_PORT`, по умолчанию 80): отдаёт интерфейс, `/api` передаёт шлюзу. Описание — в [web/README.md](web/README.md)
+- `web/` — веб-интерфейс и nginx, единственная точка входа для браузера (HTTPS на 443, с 80 — перенаправление): отдаёт интерфейс, `/api` передаёт шлюзу. Описание — в [web/README.md](web/README.md)
 - `gateway/` — шлюз, порт 8080 внутри сети (наружу не публикуется). Запросы `/api/<раздел>/**` передаются службам: `auth` — авторизации, `media` — медиаданных, `files` — загрузки и хранения, `processing` — обработки. Маршруты — в `config/gateway.yml`. Шлюз проверяет токен доступа до передачи запроса: без токена доступны только вход, обновление, выход и выдача файла по подписанной ссылке; пути `/api/<раздел>/admin/**` — только администратору
 - `config/` — настройки служб, которые раздаёт центр конфигурации: `application.yml` — общие для всех, `<имя службы>.yml` — для отдельной службы. Пароли здесь не хранятся, только подстановки вида `${POSTGRES_PASSWORD}`
 - `common/` — общие контракты (события очереди, формат ошибок), без бизнес-логики
@@ -42,9 +42,43 @@ cp .env.example .env     # замените пароли и секреты (STOR
 docker compose up -d
 ```
 
-Интерфейс — http://localhost, вход — `ADMIN_EMAIL` и `ADMIN_PASSWORD` из `.env`. Если порт 80 занят, задайте другой в `MEDIAGRID_HTTP_PORT`.
+Интерфейс — https://localhost, вход — `ADMIN_EMAIL` и `ADMIN_PASSWORD` из `.env`. При первом запуске создаётся самоподписанный сертификат (`certs/`), поэтому браузер один раз предупредит о нём. Если порты 80 и 443 заняты, задайте другие в `MEDIAGRID_HTTP_PORT` и `MEDIAGRID_HTTPS_PORT`.
 
-Наружу открыт только этот порт. База, шина, регистр служб и центр конфигурации доступны лишь внутри сети Docker. Чтобы заглянуть в них при отладке, подключите `docker-compose.debug.yaml`: он открывает служебные порты, но только для этой машины (`127.0.0.1`):
+### HTTPS
+
+Обмен с браузером идёт по защищённому каналу (ТЗ, п. 4.1.5). Без него куки входа (`Secure`) работает только на `localhost`. Запросы на порт 80 перенаправляются на HTTPS. Исключения: проверка готовности `/healthz` и проверка Let's Encrypt `/.well-known/acme-challenge/`.
+
+| Сертификат | Что сделать |
+| --- | --- |
+| Самоподписанный (по умолчанию) | ничего: создаётся при запуске на имя `MEDIAGRID_HOSTNAME` (по умолчанию `localhost`); браузер предупреждает |
+| Свой | положить `fullchain.pem` (сертификат с цепочкой) и `privkey.pem` в `certs/` (или в `MEDIAGRID_CERTS_DIR`), перезапустить `web` |
+| Let's Encrypt | см. ниже |
+| Без HTTPS (разработка) | `MEDIAGRID_TLS=off` — только HTTP на 80 |
+
+С настоящим сертификатом включается HSTS: браузер полгода не будет заходить на сервер без HTTPS. С самоподписанным HSTS не включается.
+
+Let's Encrypt на сервере (certbot установлен на сервере, домен указывает на него):
+
+```
+# 1. Запуск с каталогом проверки (пока с самоподписанным сертификатом). В .env:
+#    MEDIAGRID_HOSTNAME=media.example.com
+#    MEDIAGRID_ACME_DIR=/var/www/acme
+docker compose up -d
+sudo certbot certonly --webroot -w /var/www/acme -d media.example.com
+
+# 2. Подключить выпущенный сертификат. В .env:
+#    MEDIAGRID_CERTS_DIR=/etc/letsencrypt
+#    MEDIAGRID_TLS_CERT_FILE=live/media.example.com/fullchain.pem
+#    MEDIAGRID_TLS_KEY_FILE=live/media.example.com/privkey.pem
+docker compose up -d web
+
+# 3. Продление (certbot делает его сам по расписанию) — с перечитыванием сертификата nginx:
+sudo certbot renew --deploy-hook "docker compose -f /путь/к/mediagrid/docker-compose.yaml exec web nginx -s reload"
+```
+
+### Служебные порты
+
+Наружу открыты только порты 80 и 443. База, шина, регистр служб и центр конфигурации доступны лишь внутри сети Docker. Чтобы заглянуть в них при отладке, подключите `docker-compose.debug.yaml`: он открывает служебные порты, но только для этой машины (`127.0.0.1`):
 
 ```
 docker compose -f docker-compose.yaml -f docker-compose.debug.yaml up -d
@@ -60,7 +94,7 @@ docker compose -f docker-compose.yaml -f docker-compose.debug.yaml up -d
 
 ## Требования к серверу
 
-Сервер с Linux и Docker. Наружу нужен только порт веб-интерфейса.
+Сервер с Linux и Docker. Наружу нужны только порты 80 и 443. Для настоящего сертификата — доменное имя, указывающее на сервер.
 
 | | Процессор | Память | Диск | Для чего |
 | --- | --- | --- | --- | --- |
@@ -111,7 +145,7 @@ docker compose -f docker-compose.yaml -f docker-compose.small.yaml up -d
 3. **Третье число** — маленькие обновления, исправления ошибок и прочие правки.
 
 До первого законченного релиза версия начинается с нуля: `0.2.0`, `0.3.0` и т. д.
-Текущая версия: `0.8.0-SNAPSHOT` (задаётся в родительском `pom.xml`, у модулей наследуется).
+Текущая версия: `0.8.0` (задаётся в родительском `pom.xml`, у модулей наследуется).
 Смена версии во всех модулях одной командой:
 
 ```

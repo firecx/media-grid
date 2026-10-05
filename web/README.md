@@ -45,7 +45,7 @@ nginx/         настройки nginx: шаблон сервера и пере
 ```
 cd web
 npm ci
-npm run dev        # http://localhost:5173, /api уходит на http://localhost (MEDIAGRID_URL)
+npm run dev        # http://localhost:5173, /api уходит на https://localhost (MEDIAGRID_URL; при MEDIAGRID_TLS=off — http://localhost)
 npm run check      # ESLint, тесты (Vitest), проверка типов и сборка
 ```
 
@@ -53,6 +53,12 @@ npm run check      # ESLint, тесты (Vitest), проверка типов и
 
 ## nginx
 
+Настройки собирает скрипт `nginx/40-mediagrid.sh` при запуске контейнера из частей: `http.conf.template` (ограничение входа, DNS, постоянные соединения со шлюзом), `app.conf` (сайт) и `proxy.conf` (передача шлюзу).
+
+- **HTTPS** (`MEDIAGRID_TLS=auto`, по умолчанию): порт 443, HTTP/2, TLS 1.2 и 1.3. С порта 80 — перенаправление на HTTPS, кроме `/healthz` и `/.well-known/acme-challenge/` (каталог `/var/www/acme` для certbot).
+  - Сертификат: `/etc/nginx/certs/fullchain.pem` и `privkey.pem` (другие имена — `MEDIAGRID_TLS_CERT_FILE`, `MEDIAGRID_TLS_KEY_FILE`). Если файлов нет, создаётся самоподписанный на `MEDIAGRID_HOSTNAME`. Если указанного своего файла нет, контейнер не запускается и пишет причину в журнал.
+  - С настоящим сертификатом (выдавший его ≠ владелец) добавляется `Strict-Transport-Security` на полгода.
+- `MEDIAGRID_TLS=off` — только HTTP на 80.
 - `/api/**` передаётся шлюзу без буферизации: части загрузки идут сразу, файлы выдаются потоком, размер тела не ограничен, ожидание до часа. Адрес шлюза (`GATEWAY_ADDRESS`, по умолчанию `gateway:8080`) перечитывается у DNS docker, поэтому перезапуск шлюза не ломает nginx.
 - `POST /api/auth/login` — не больше 10 попыток в минуту с одного адреса (запас 5 подряд), дальше 429 `TOO_MANY_REQUESTS`.
 - Если шлюз недоступен, ответ — 503 `SERVICE_UNAVAILABLE` в общем формате ошибок.
@@ -62,6 +68,5 @@ npm run check      # ESLint, тесты (Vitest), проверка типов и
 
 ## Ограничения
 
-- Защищённый канал (HTTPS, ТЗ п. 4.1.5) ещё не настроен. Без него куки входа (`Secure`) браузер примет только на `localhost`.
 - Миниатюры каталога запрашиваются по одной ссылке на карточку (до 24 запросов на страницу); пакетной выдачи ссылок пока нет.
 - Перевода интерфейса нет, только русский.

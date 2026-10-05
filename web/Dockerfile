@@ -9,10 +9,13 @@ COPY . .
 RUN npm run build
 
 FROM nginx:1.30-alpine
-# Шаблоны из /etc/nginx/templates при запуске дополняются переменными среды (envsubst) и кладутся в conf.d
-COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template
-COPY nginx/proxy.conf /etc/nginx/mediagrid/proxy.conf
+# openssl — для самоподписанного сертификата, если настоящего нет
+RUN apk add --no-cache openssl
+# Части настроек; итоговые собирает 40-mediagrid.sh при запуске (HTTPS или только HTTP)
+COPY nginx/http.conf.template nginx/app.conf nginx/proxy.conf /etc/nginx/mediagrid/
+COPY --chmod=755 nginx/40-mediagrid.sh /docker-entrypoint.d/40-mediagrid.sh
 COPY --from=build /app/dist /usr/share/nginx/html
+RUN mkdir -p /etc/nginx/certs /var/www/acme
 # Адрес шлюза внутри сети docker compose
 ENV GATEWAY_ADDRESS=gateway:8080
-EXPOSE 80
+EXPOSE 80 443
