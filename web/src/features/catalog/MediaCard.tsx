@@ -26,7 +26,7 @@ export function MediaCard({ media }: { media: Media }) {
         <Row gap="xs">
           <Badge>{kindLabels[media.mediaKind]}</Badge>
           {media.status !== 'READY' && <Badge tone={status.tone}>{status.label}</Badge>}
-          {media.visibility === 'PUBLIC' && <Badge tone="info">Общий</Badge>}
+          {media.visibility === 'PUBLIC' && <Badge tone="accent3">Общий</Badge>}
         </Row>
         <Text muted small>{formatBytes(media.sizeBytes)} · {formatDate(media.createdAt)}</Text>
       </div>

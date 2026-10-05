@@ -1,3 +1,10 @@
+/* Фон темы — на всю страницу, в том числе за пределами содержимого и при прокрутке за край */
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
 html,
 body {
   margin: 0;
@@ -6,7 +13,7 @@ body {
   font-family: var(--mg-font);
 }
 
-/* light-dark() в tokens.css следует за схемой, которую выбирает переключатель темы */
+/* Полосы прокрутки, поля дат и прочие встроенные элементы браузера — в цвет темы */
 :root[data-mantine-color-scheme='light'] {
   color-scheme: light;
 }
@@ -17,4 +24,18 @@ body {
 
 a {
   color: var(--mg-color-accent);
+}
+
+a:hover {
+  color: var(--mg-color-accent-2);
+}
+
+:focus-visible {
+  outline: 2px solid var(--mg-color-focus);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--mg-color-accent);
+  color: var(--mg-color-bg);
 }

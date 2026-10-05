@@ -118,7 +118,7 @@ function MediaDetails({ media }: { media: Media }) {
           <Title level={1}>{media.title}</Title>
           <Row gap="xs">
             <Badge tone={status.tone}>{status.label}</Badge>
-            {media.tags.map((tag) => <Link key={tag} to={`/?tag=${encodeURIComponent(tag)}`}><Badge>#{tag}</Badge></Link>)}
+            {media.tags.map((tag) => <Link key={tag} to={`/?tag=${encodeURIComponent(tag)}`}><Badge tone="accent2">#{tag}</Badge></Link>)}
           </Row>
         </Stack>
 

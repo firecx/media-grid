@@ -1,7 +1,10 @@
 /*
- * Собственные переменные оформления. Страницы и модули CSS опираются только на них, а не на переменные
- * Mantine: при переходе на свои стили эти значения останутся, сменится лишь их источник.
- * light-dark() выбирает значение по текущей схеме (color-scheme), которую выставляет переключатель темы.
+ * Собственные переменные оформления. Страницы и модули CSS опираются только на них; Mantine тоже
+ * получает из них фон, текст и рамки (cssVariablesResolver в UiProvider). При переходе на свои стили
+ * эти значения останутся как есть.
+ *
+ * Схема задаётся атрибутом data-mantine-color-scheme на <html>: его выставляет переключатель темы,
+ * а до запуска приложения — public/color-scheme.js (без белой вспышки при открытии).
  */
 :root {
   --mg-font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -16,11 +19,42 @@
   --mg-header-height: 56px;
   --mg-content-width: 1280px;
 
-  --mg-color-bg: light-dark(#f6f7f9, #16181d);
-  --mg-color-surface: light-dark(#ffffff, #1f2229);
-  --mg-color-border: light-dark(#dfe2e7, #2f333c);
-  --mg-color-text: light-dark(#1b1e24, #e6e8ec);
-  --mg-color-muted: light-dark(#5f6672, #9aa1ad);
-  --mg-color-accent: light-dark(#4c5fd5, #8b9bff);
-  --mg-color-thumb-bg: light-dark(#e8eaee, #262a32);
+  /* Светлая тема. Выделение: синий, тёмно-синий, фиолетовый */
+  --mg-color-bg: #f4f6fa;
+  --mg-color-surface: #ffffff;
+  --mg-color-raised: #f8f9fc;
+  --mg-color-hover: #eef1f7;
+  --mg-color-border: #d9dee7;
+  --mg-color-text: #161b24;
+  --mg-color-muted: #535c6b;
+  --mg-color-icon: #2f3846;
+  --mg-color-placeholder: #7d8594;
+  --mg-color-thumb-bg: #e6eaf1;
+
+  --mg-color-accent: #1971c2;
+  --mg-color-accent-2: #2b3fa8;
+  --mg-color-accent-3: #7048e8;
+  --mg-color-accent-soft: #e7f0fb;
+  --mg-color-focus: #1971c2;
+}
+
+/* Тёмная тема: тёмная вся страница; текст и значки светлые с большим запасом контраста.
+   Выделение: бирюзовый, аквамарин, голубо-зелёный */
+:root[data-mantine-color-scheme='dark'] {
+  --mg-color-bg: #0d1014;
+  --mg-color-surface: #151a20;
+  --mg-color-raised: #1b2129;
+  --mg-color-hover: #222a33;
+  --mg-color-border: #2e3742;
+  --mg-color-text: #eef2f6;
+  --mg-color-muted: #b3bdc9;
+  --mg-color-icon: #dce3ea;
+  --mg-color-placeholder: #8a95a3;
+  --mg-color-thumb-bg: #1b2129;
+
+  --mg-color-accent: #3ddbcd;
+  --mg-color-accent-2: #7cf5c9;
+  --mg-color-accent-3: #3cc8dc;
+  --mg-color-accent-soft: #10302e;
+  --mg-color-focus: #3ddbcd;
 }

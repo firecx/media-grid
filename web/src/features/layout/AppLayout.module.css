@@ -18,10 +18,13 @@
 }
 
 .brand {
-  font-weight: 700;
+  font-weight: 800;
   font-size: 1.125rem;
-  color: var(--mg-color-text);
   text-decoration: none;
+  /* Название — переходом цветов выделения темы */
+  background: linear-gradient(90deg, var(--mg-color-accent), var(--mg-color-accent-3));
+  background-clip: text;
+  color: transparent;
 }
 
 .nav {
@@ -41,10 +44,13 @@
 
 .link:hover {
   color: var(--mg-color-text);
+  background: var(--mg-color-hover);
 }
 
-.active {
+.active,
+.active:hover {
   color: var(--mg-color-accent);
+  background: var(--mg-color-accent-soft);
   font-weight: 600;
 }
 
