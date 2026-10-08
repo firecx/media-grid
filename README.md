@@ -38,7 +38,7 @@
 ## Запуск окружения
 
 ```
-cp .env.example .env     # замените пароли и секреты (STORAGE_LINK_SECRET, PROCESSING_CLIENT_SECRET)
+cp .env.example .env     # замените пароли и секреты (STORAGE_LINK_SECRET, PROCESSING_CLIENT_SECRET, GATEWAY_CLIENT_SECRET)
 docker compose up -d
 ```
 
@@ -268,7 +268,7 @@ docker compose -f docker-compose.yaml -f docker-compose.small.yaml up -d
 3. **Третье число** — маленькие обновления, исправления ошибок и прочие правки.
 
 До первого законченного релиза версия начинается с нуля: `0.2.0`, `0.3.0` и т. д.
-Текущая версия: `0.12.0` (задаётся в родительском `pom.xml`, у модулей наследуется).
+Текущая версия: `0.13.0` (задаётся в родительском `pom.xml`, у модулей наследуется).
 Смена версии во всех модулях одной командой:
 
 ```

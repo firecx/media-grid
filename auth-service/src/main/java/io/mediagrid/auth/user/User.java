@@ -36,6 +36,9 @@ public class User {
 
     private boolean enabled;
 
+    /** Поколение токенов доступа (утверждение ver): токены прежних поколений отозваны. */
+    private int tokenVersion;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -98,6 +101,15 @@ public class User {
 
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
+    }
+
+    public int getTokenVersion() {
+        return tokenVersion;
+    }
+
+    /** Переход к следующему поколению токенов; выданные раньше становятся отозванными. */
+    public int nextTokenVersion() {
+        return ++tokenVersion;
     }
 
     public Instant getCreatedAt() {

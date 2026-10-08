@@ -10,6 +10,7 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -25,13 +26,19 @@ import org.springframework.security.crypto.password.PasswordEncoder;
  *   docker compose exec auth-service reset-admin-password admin@example.com
  * </pre>
  * Новый пароль спрашивается дважды и на экран не выводится; без терминала — одна строка со стандартного
- * ввода. Учётная запись включается, все её сеансы (обновляемые токены) завершаются. Работает только для
- * администраторов: пароли пользователей сбрасывает администратор в интерфейсе.
+ * ввода. Учётная запись включается, все её сеансы завершаются, выданные токены доступа отзываются. Работает
+ * только для администраторов: пароли пользователей сбрасывает администратор в интерфейсе.
  * <p>
  * Отдельная программа без Spring: не запускает вторую копию службы, к базе подключается учётной записью
  * службы, пароль хеширует тем же способом, что и служба.
  */
 public final class AdminPasswordReset {
+
+    /**
+     * Сколько хранить запись об отзыве токенов. Срок токена доступа задан в настройках службы (15 минут),
+     * программе он неизвестен — с запасом; лишняя запись ничему не мешает и удаляется службой.
+     */
+    private static final Duration KEEP_REVOCATION = Duration.ofDays(1);
 
     private AdminPasswordReset() {
     }
@@ -48,8 +55,8 @@ public final class AdminPasswordReset {
             try (Connection connection = DriverManager.getConnection(url, env("DB_USER", "mediagrid_auth"),
                     env("DB_PASSWORD", ""))) {
                 String email = reset(connection, args[0], password, SecurityConfig.createPasswordEncoder());
-                System.out.println("Пароль администратора " + email + " изменён, все его сеансы завершены. "
-                        + "Уже выданные токены доступа действуют до своего истечения (до 15 минут).");
+                System.out.println("Пароль администратора " + email + " изменён, все его сеансы завершены, "
+                        + "выданные токены доступа отозваны.");
             }
         } catch (ResetException e) {
             System.err.println("Ошибка: " + e.getMessage());
@@ -61,7 +68,8 @@ public final class AdminPasswordReset {
     }
 
     /**
-     * Задаёт администратору новый пароль, включает учётную запись и завершает её сеансы — одной транзакцией.
+     * Задаёт администратору новый пароль, включает учётную запись, завершает её сеансы и отзывает токены
+     * доступа (новое поколение, как AccessRevocationService.revokeAll) — одной транзакцией.
      *
      * @return почта администратора в том виде, в каком она хранится
      */
@@ -91,11 +99,25 @@ public final class AdminPasswordReset {
                     id = row.getObject("id", UUID.class);
                 }
             }
-            try (PreparedStatement update = connection.prepareStatement(
-                    "update auth.users set password_hash = ?, enabled = true, updated_at = now() where id = ?")) {
+            int version;
+            try (PreparedStatement update = connection.prepareStatement("""
+                    update auth.users set password_hash = ?, enabled = true, updated_at = now(),
+                        token_version = token_version + 1
+                    where id = ? returning token_version""")) {
                 update.setString(1, encoder.encode(newPassword));
                 update.setObject(2, id);
-                update.executeUpdate();
+                try (ResultSet row = update.executeQuery()) {
+                    row.next();
+                    version = row.getInt(1);
+                }
+            }
+            try (PreparedStatement revokeAccess = connection.prepareStatement("""
+                    insert into auth.access_revocations (id, user_id, min_version, expires_at, created_at)
+                    values (gen_random_uuid(), ?, ?, now() + make_interval(secs => ?), now())""")) {
+                revokeAccess.setObject(1, id);
+                revokeAccess.setInt(2, version);
+                revokeAccess.setDouble(3, KEEP_REVOCATION.toSeconds());
+                revokeAccess.executeUpdate();
             }
             try (PreparedStatement revoke = connection.prepareStatement(
                     "update auth.refresh_tokens set revoked_at = now() where user_id = ? and revoked_at is null")) {

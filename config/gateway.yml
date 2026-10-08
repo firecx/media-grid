@@ -81,6 +81,14 @@ resilience4j:
         permitted-number-of-calls-in-half-open-state: 3
         automatic-transition-from-open-to-half-open-enabled: true
 
+mediagrid:
+  gateway:
+    revocations:
+      # Шлюз входит в службу авторизации как служба (имя gateway) и раз в poll-interval забирает список
+      # отозванных токенов доступа: выход, смена пароля, отключение, смена роли. Это и есть задержка отзыва
+      client-secret: ${GATEWAY_CLIENT_SECRET:}
+      poll-interval: 5s
+
 management:
   endpoints:
     web:

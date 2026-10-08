@@ -19,3 +19,4 @@ DB_PASSWORD: test
 ADMIN_EMAIL: admin@test.local
 ADMIN_PASSWORD: admin-password
 PROCESSING_CLIENT_SECRET: test-processing-secret-0123456789abcdef
+GATEWAY_CLIENT_SECRET: test-gateway-secret-0123456789abcdef0

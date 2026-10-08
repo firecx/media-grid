@@ -12,6 +12,8 @@ import java.util.UUID;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
+import io.mediagrid.gateway.security.SecurityConfig;
+import io.mediagrid.gateway.security.TokenRevocations;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -20,7 +22,6 @@ import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
 import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
-import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusReactiveJwtDecoder;
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
@@ -39,10 +40,11 @@ final class TestTokens {
 
         @Bean
         @Primary
-        ReactiveJwtDecoder testJwtDecoder(@Value("${mediagrid.security.issuer}") String issuer) {
+        ReactiveJwtDecoder testJwtDecoder(@Value("${mediagrid.security.issuer}") String issuer,
+                                          TokenRevocations revocations) {
             NimbusReactiveJwtDecoder decoder = NimbusReactiveJwtDecoder
                     .withPublicKey((RSAPublicKey) TRUSTED.getPublic()).build();
-            decoder.setJwtValidator(JwtValidators.createDefaultWithIssuer(issuer));
+            decoder.setJwtValidator(SecurityConfig.jwtValidator(issuer, revocations));
             return decoder;
         }
     }

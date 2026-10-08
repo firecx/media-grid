@@ -7,6 +7,9 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2TokenValidator;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusReactiveJwtDecoder;
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
@@ -21,7 +24,8 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 /**
  * Первичная проверка токена доступа до передачи запроса службе (ТЗ, п. 4.2.5).
- * Службы проверяют токен ещё раз сами: шлюз — не единственная защита.
+ * Службы проверяют токен ещё раз сами: шлюз — не единственная защита. Отозванные токены (TokenRevocations)
+ * отклоняет только шлюз: снаружи до служб можно дойти только через него.
  */
 @Configuration
 public class SecurityConfig {
@@ -72,13 +76,19 @@ public class SecurityConfig {
      * при встрече токена с незнакомым ключом список перечитывается.
      */
     @Bean
-    ReactiveJwtDecoder jwtDecoder(SecurityProperties properties,
+    ReactiveJwtDecoder jwtDecoder(SecurityProperties properties, TokenRevocations revocations,
                                   ReactorLoadBalancerExchangeFilterFunction loadBalancer) {
         NimbusReactiveJwtDecoder decoder = NimbusReactiveJwtDecoder.withJwkSetUri(properties.jwkSetUri())
                 .webClient(WebClient.builder().filter(loadBalancer).build())
                 .build();
-        decoder.setJwtValidator(JwtValidators.createDefaultWithIssuer(properties.issuer()));
+        decoder.setJwtValidator(jwtValidator(properties.issuer(), revocations));
         return decoder;
+    }
+
+    /** Срок действия, издатель и отзыв. */
+    public static OAuth2TokenValidator<Jwt> jwtValidator(String issuer, TokenRevocations revocations) {
+        return new DelegatingOAuth2TokenValidator<>(JwtValidators.createDefaultWithIssuer(issuer),
+                new RevokedTokenValidator(revocations));
     }
 
     private static ReactiveJwtAuthenticationConverterAdapter jwtAuthenticationConverter() {

@@ -14,11 +14,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.util.Base64;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import javax.sql.DataSource;
 
 import com.jayway.jsonpath.JsonPath;
+import com.nimbusds.jwt.SignedJWT;
 import io.mediagrid.auth.user.AdminPasswordReset;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
@@ -58,6 +61,7 @@ class AuthFlowTest {
     }
 
     private static final String SERVICE_SECRET = "test-processing-secret-0123456789abcdef";
+    private static final String GATEWAY_SECRET = "test-gateway-secret-0123456789abcdef0";
 
     @Autowired
     MockMvc mvc;
@@ -211,8 +215,13 @@ class AuthFlowTest {
                 .andExpect(status().isNoContent());
 
         mvc.perform(post("/api/auth/refresh").cookie(refresh)).andExpect(status().isUnauthorized());
+        // Токен доступа, выданный до смены пароля, отозван
+        mvc.perform(get("/api/auth/me").header(HttpHeaders.AUTHORIZATION, bearer(userLogin)))
+                .andExpect(status().isUnauthorized());
         login(email, "user-password").andExpect(status().isUnauthorized());
-        login(email, "new-password").andExpect(status().isOk());
+        MvcResult fresh = login(email, "new-password").andExpect(status().isOk()).andReturn();
+        mvc.perform(get("/api/auth/me").header(HttpHeaders.AUTHORIZATION, bearer(fresh)))
+                .andExpect(status().isOk());
     }
 
     @Test
@@ -264,7 +273,8 @@ class AuthFlowTest {
     @Test
     void forgottenAdminPasswordIsResetOnServerAndSessionsEnd() throws Exception {
         String email = createUser("ADMIN");
-        Cookie session = login(email, "user-password").andReturn().getResponse().getCookie(COOKIE);
+        MvcResult oldLogin = login(email, "user-password").andReturn();
+        Cookie session = oldLogin.getResponse().getCookie(COOKIE);
 
         try (Connection connection = dataSource.getConnection()) {
             assertThat(AdminPasswordReset.reset(connection, email.toUpperCase(), "new-admin-password", passwordEncoder))
@@ -273,8 +283,112 @@ class AuthFlowTest {
 
         login(email, "user-password").andExpect(status().isUnauthorized());
         login(email, "new-admin-password").andExpect(status().isOk());
-        // Сеансы, открытые со старым паролем, завершены
+        // Сеансы, открытые со старым паролем, завершены, их токены доступа отозваны
         mvc.perform(post("/api/auth/refresh").cookie(session)).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/auth/me").header(HttpHeaders.AUTHORIZATION, bearer(oldLogin)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void accessTokenCarriesSessionAndGeneration() throws Exception {
+        MvcResult first = login(createUser("USER"), "user-password").andReturn();
+        Jwt token = jwtDecoder.decode(JsonPath.read(first.getResponse().getContentAsString(), "$.accessToken"));
+        assertThat(UUID.fromString(token.getClaimAsString("sid"))).isNotNull();
+        assertThat(((Number) token.getClaim("ver")).intValue()).isZero();
+
+        // Обновление продолжает тот же вход
+        MvcResult refreshed = mvc.perform(post("/api/auth/refresh").cookie(first.getResponse().getCookie(COOKIE)))
+                .andExpect(status().isOk()).andReturn();
+        Jwt next = jwtDecoder.decode(JsonPath.read(refreshed.getResponse().getContentAsString(), "$.accessToken"));
+        assertThat(next.getClaimAsString("sid")).isEqualTo(token.getClaimAsString("sid"));
+    }
+
+    @Test
+    void logoutRevokesAccessTokenOfThatSessionOnly() throws Exception {
+        String email = createUser("USER");
+        MvcResult phone = login(email, "user-password").andReturn();
+        MvcResult laptop = login(email, "user-password").andReturn();
+
+        mvc.perform(post("/api/auth/logout").cookie(phone.getResponse().getCookie(COOKIE)))
+                .andExpect(status().isNoContent());
+
+        mvc.perform(get("/api/auth/me").header(HttpHeaders.AUTHORIZATION, bearer(phone)))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/auth/me").header(HttpHeaders.AUTHORIZATION, bearer(laptop)))
+                .andExpect(status().isOk());
+
+        // Шлюз узнаёт об отзыве из списка
+        // Токен уже отозван — проверяющий декодер его не примет, утверждения читаются без проверки
+        String sid = SignedJWT.parse(accessToken(phone)).getJWTClaimsSet().getStringClaim("sid");
+        String userId = JsonPath.read(phone.getResponse().getContentAsString(), "$.user.id");
+        List<Map<String, Object>> entries = JsonPath.read(revocations(), "$.revocations[?(@.sessionId == '" + sid + "')]");
+        assertThat(entries).singleElement().satisfies(entry -> {
+            assertThat(entry).containsEntry("userId", userId).containsEntry("minVersion", null);
+            assertThat(entry.get("expiresAt")).isNotNull();
+        });
+        // Повторный выход тем же куки новой записи не добавляет
+        mvc.perform(post("/api/auth/logout").cookie(phone.getResponse().getCookie(COOKIE)));
+        assertThat((List<?>) JsonPath.read(revocations(), "$.revocations[?(@.sessionId == '" + sid + "')]"))
+                .hasSize(1);
+    }
+
+    @Test
+    void roleChangeRevokesAccessTokensButKeepsSession() throws Exception {
+        String email = createUser("USER");
+        MvcResult userLogin = login(email, "user-password").andReturn();
+        String id = JsonPath.read(userLogin.getResponse().getContentAsString(), "$.user.id");
+
+        mvc.perform(patch("/api/auth/admin/users/" + id).header(HttpHeaders.AUTHORIZATION, adminBearer())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"role\": \"ADMIN\"}"))
+                .andExpect(status().isOk());
+
+        // В старом токене прежняя роль — он отозван; обновление выдаёт токен с новой ролью
+        mvc.perform(get("/api/auth/me").header(HttpHeaders.AUTHORIZATION, bearer(userLogin)))
+                .andExpect(status().isUnauthorized());
+        MvcResult refreshed = mvc.perform(post("/api/auth/refresh").cookie(userLogin.getResponse().getCookie(COOKIE)))
+                .andExpect(status().isOk()).andReturn();
+        Jwt token = jwtDecoder.decode(accessToken(refreshed));
+        assertThat(token.getClaimAsStringList("roles")).containsExactly("ADMIN");
+        assertThat(((Number) token.getClaim("ver")).intValue()).isEqualTo(1);
+        mvc.perform(get("/api/auth/admin/users").header(HttpHeaders.AUTHORIZATION, bearer(refreshed)))
+                .andExpect(status().isOk());
+        List<Integer> versions = JsonPath.read(revocations(), "$.revocations[?(@.userId == '" + id + "')].minVersion");
+        assertThat(versions).containsExactly(1);
+
+        // Смена только имени токены не трогает
+        mvc.perform(patch("/api/auth/admin/users/" + id).header(HttpHeaders.AUTHORIZATION, adminBearer())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"displayName\": \"Другое имя\", \"role\": \"ADMIN\"}"))
+                .andExpect(status().isOk());
+        mvc.perform(get("/api/auth/me").header(HttpHeaders.AUTHORIZATION, bearer(refreshed)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void disablingUserRevokesAccessTokens() throws Exception {
+        String email = createUser("USER");
+        MvcResult userLogin = login(email, "user-password").andReturn();
+        String id = JsonPath.read(userLogin.getResponse().getContentAsString(), "$.user.id");
+
+        mvc.perform(patch("/api/auth/admin/users/" + id).header(HttpHeaders.AUTHORIZATION, adminBearer())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"enabled\": false}"))
+                .andExpect(status().isOk());
+
+        mvc.perform(get("/api/auth/me").header(HttpHeaders.AUTHORIZATION, bearer(userLogin)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void revocationListIsOnlyForServices() throws Exception {
+        mvc.perform(get("/internal/auth/revocations")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/internal/auth/revocations").header(HttpHeaders.AUTHORIZATION, adminBearer()))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/internal/auth/revocations").header(HttpHeaders.AUTHORIZATION, serviceBearer("gateway",
+                        GATEWAY_SECRET)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.revocations").isArray());
     }
 
     @Test
@@ -292,6 +406,24 @@ class AuthFlowTest {
         // Отказ ничего не изменил
         login(user, "user-password").andExpect(status().isOk());
         login("admin@test.local", "admin-password").andExpect(status().isOk());
+    }
+
+    private String revocations() throws Exception {
+        return mvc.perform(get("/internal/auth/revocations")
+                        .header(HttpHeaders.AUTHORIZATION, serviceBearer("gateway", GATEWAY_SECRET)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+    }
+
+    private String serviceBearer(String name, String secret) throws Exception {
+        String body = mvc.perform(post("/internal/auth/token").header(HttpHeaders.AUTHORIZATION, basic(name, secret)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        return "Bearer " + JsonPath.read(body, "$.accessToken");
+    }
+
+    private static String accessToken(MvcResult loginResult) throws Exception {
+        return JsonPath.read(loginResult.getResponse().getContentAsString(), "$.accessToken");
     }
 
     private static String basic(String name, String secret) {

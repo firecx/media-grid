@@ -49,13 +49,15 @@ public class SessionService {
         if (passwordEncoder.upgradeEncoding(user.getPasswordHash())) {
             user.setPasswordHash(passwordEncoder.encode(password));
         }
-        return new Session(user, accessTokens.issue(user), refreshTokens.issue(user));
+        IssuedRefreshToken refreshToken = refreshTokens.issue(user);
+        return new Session(user, accessTokens.issue(user, refreshToken.familyId()), refreshToken);
     }
 
     @Transactional(noRollbackFor = ApiException.class)
     public Session refresh(String refreshToken) {
         Rotation rotation = refreshTokens.rotate(refreshToken);
-        return new Session(rotation.user(), accessTokens.issue(rotation.user()), rotation.token());
+        return new Session(rotation.user(), accessTokens.issue(rotation.user(), rotation.token().familyId()),
+                rotation.token());
     }
 
     public void logout(String refreshToken) {

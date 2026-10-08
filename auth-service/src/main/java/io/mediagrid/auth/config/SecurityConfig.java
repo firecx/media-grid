@@ -5,6 +5,7 @@ import com.nimbusds.jose.proc.JWSVerificationKeySelector;
 import com.nimbusds.jose.proc.SecurityContext;
 import com.nimbusds.jwt.proc.DefaultJWTProcessor;
 import io.mediagrid.auth.key.SigningKeyService;
+import io.mediagrid.auth.token.AccessRevocationService;
 import io.mediagrid.support.security.ResourceServerSecurity;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -12,6 +13,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
@@ -37,6 +39,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/auth/jwks").permitAll()
                         // Токен службы: имя и секрет проверяет ServiceTokenController
                         .requestMatchers(HttpMethod.POST, "/internal/auth/token").permitAll()
+                        // Список отозванных токенов — для шлюза, по токену службы
+                        .requestMatchers(HttpMethod.GET, "/internal/auth/revocations")
+                        .hasRole(ResourceServerSecurity.SERVICE_ROLE)
                         .requestMatchers("/actuator/health/**", "/actuator/info", "/error").permitAll()
                         // Административные функции отделены от пользовательских (ТЗ, п. 4.1.8)
                         .requestMatchers("/api/auth/admin/**").hasRole("ADMIN")
@@ -63,13 +68,17 @@ public class SecurityConfig {
         return new NimbusJwtEncoder(keys.jwkSource());
     }
 
-    /** Своя проверка вместо общей из service-support: ключи берутся прямо из базы службы. */
+    /**
+     * Своя проверка вместо общей из service-support: ключи берутся прямо из базы службы, отозванные токены —
+     * тоже (остальные службы полагаются на шлюз).
+     */
     @Bean
-    JwtDecoder jwtDecoder(SigningKeyService keys, AuthProperties properties) {
+    JwtDecoder jwtDecoder(SigningKeyService keys, AuthProperties properties, AccessRevocationService revocations) {
         DefaultJWTProcessor<SecurityContext> processor = new DefaultJWTProcessor<>();
         processor.setJWSKeySelector(new JWSVerificationKeySelector<>(JWSAlgorithm.RS256, keys.jwkSource()));
         NimbusJwtDecoder decoder = new NimbusJwtDecoder(processor);
-        decoder.setJwtValidator(JwtValidators.createDefaultWithIssuer(properties.issuer()));
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
+                JwtValidators.createDefaultWithIssuer(properties.issuer()), new RevokedTokenValidator(revocations)));
         return decoder;
     }
 }

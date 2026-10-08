@@ -31,10 +31,13 @@ public class RefreshTokenService {
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private final RefreshTokenRepository repository;
+    private final AccessRevocationService accessRevocations;
     private final Duration ttl;
 
-    public RefreshTokenService(RefreshTokenRepository repository, AuthProperties properties) {
+    public RefreshTokenService(RefreshTokenRepository repository, AccessRevocationService accessRevocations,
+                               AuthProperties properties) {
         this.repository = repository;
+        this.accessRevocations = accessRevocations;
         this.ttl = properties.refreshTokenTtl();
     }
 
@@ -51,7 +54,7 @@ public class RefreshTokenService {
         RefreshToken current = repository.findByTokenHash(hash(rawToken)).orElseThrow(RefreshTokenService::invalid);
         if (current.isRevoked()) {
             if (current.getReplacedBy() != null) {
-                int revoked = repository.revokeFamily(current.getFamilyId(), now);
+                int revoked = revokeSession(current, now);
                 log.warn("Повторно предъявлен заменённый обновляемый токен пользователя {}: цепочка отозвана ({} шт.)",
                         current.getUser().getId(), revoked);
             }
@@ -68,13 +71,26 @@ public class RefreshTokenService {
     /** Выход: отзывается вся цепочка текущего входа. Неизвестный токен молча игнорируется. */
     @Transactional
     public void revoke(String rawToken) {
-        repository.findByTokenHash(hash(rawToken))
-                .ifPresent(token -> repository.revokeFamily(token.getFamilyId(), Instant.now()));
+        repository.findByTokenHash(hash(rawToken)).ifPresent(token -> revokeSession(token, Instant.now()));
     }
 
+    /** Завершает все входы пользователя: обновляемые токены и уже выданные токены доступа. */
     @Transactional
-    public void revokeAllForUser(UUID userId) {
-        repository.revokeAllForUser(userId, Instant.now());
+    public void revokeAllForUser(User user) {
+        repository.revokeAllForUser(user.getId(), Instant.now());
+        accessRevocations.revokeAll(user);
+    }
+
+    /**
+     * Отзывает цепочку входа и выданные по ней токены доступа. Если в цепочке не осталось действующих
+     * токенов, вход завершён раньше — и токены доступа отозваны тогда же.
+     */
+    private int revokeSession(RefreshToken token, Instant now) {
+        int revoked = repository.revokeFamily(token.getFamilyId(), now);
+        if (revoked > 0) {
+            accessRevocations.revokeSession(token.getUser().getId(), token.getFamilyId());
+        }
+        return revoked;
     }
 
     /** Раз в сутки удаляет токены, истёкшие больше суток назад. */
@@ -96,7 +112,7 @@ public class RefreshTokenService {
         RANDOM.nextBytes(bytes);
         String raw = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         RefreshToken token = repository.save(new RefreshToken(user, hash(raw), familyId, Instant.now().plus(ttl)));
-        return new IssuedRefreshToken(token.getId(), raw);
+        return new IssuedRefreshToken(token.getId(), familyId, raw);
     }
 
     private static String hash(String raw) {
@@ -112,7 +128,8 @@ public class RefreshTokenService {
         return ApiException.unauthorized("INVALID_REFRESH_TOKEN", "Сеанс истёк, войдите заново");
     }
 
-    public record IssuedRefreshToken(UUID id, String value) {
+    /** familyId — номер входа, попадает в токен доступа (sid). */
+    public record IssuedRefreshToken(UUID id, UUID familyId, String value) {
     }
 
     public record Rotation(User user, IssuedRefreshToken token) {

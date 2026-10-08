@@ -180,7 +180,7 @@ copy .env.example .env
 | `ADMIN_EMAIL` | почта первого администратора |
 | `ADMIN_PASSWORD` | его пароль, 8–64 символа |
 | `STORAGE_LINK_SECRET` | случайная строка не короче 32 символов |
-| `PROCESSING_CLIENT_SECRET` | ещё одна случайная строка не короче 32 символов |
+| `PROCESSING_CLIENT_SECRET`, `GATEWAY_CLIENT_SECRET` | ещё две разные случайные строки не короче 32 символов |
 | `BACKUP_PASSWORD` | пароль шифрования резервных копий — случайная строка; сохраните копию вне компьютера |
 | `BACKUP_DIR` | папка для копий на другом диске, например `D:/mediagrid-backups` (по умолчанию `./backups`) |
 | `MEDIAGRID_HOSTNAME` | `media.example.org` (раскомментируйте строку) |

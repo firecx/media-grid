@@ -44,3 +44,5 @@ mediagrid:
     # Секрет — не короче 32 символов; пустой — вход службе закрыт
     service-clients:
       processing-service: ${PROCESSING_CLIENT_SECRET:}
+      # Шлюз забирает список отозванных токенов доступа (GET /internal/auth/revocations)
+      gateway: ${GATEWAY_CLIENT_SECRET:}
