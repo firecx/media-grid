@@ -1,5 +1,6 @@
 package io.mediagrid.support;
 
+import io.mediagrid.support.events.EventPublisher;
 import io.mediagrid.support.security.SecurityProperties;
 import io.mediagrid.support.web.ApiExceptionHandler;
 import io.mediagrid.support.web.ServiceTrafficFilter;
@@ -70,6 +71,13 @@ public class ServiceSupportAutoConfiguration {
         @ConditionalOnMissingBean
         MessageConverter messageConverter() {
             return new JacksonJsonMessageConverter("io.mediagrid.common.events");
+        }
+
+        /** Отправка событий с подтверждением брокера. */
+        @Bean
+        @ConditionalOnMissingBean
+        EventPublisher eventPublisher(RabbitTemplate rabbit) {
+            return new EventPublisher(rabbit);
         }
     }
 }

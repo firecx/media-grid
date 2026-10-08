@@ -70,6 +70,12 @@ spring:
     port: ${RABBITMQ_PORT:5672}
     username: ${RABBITMQ_USER:mediagrid}
     password: ${RABBITMQ_PASSWORD:}
+    # Брокер подтверждает приём каждого события (EventPublisher): без подтверждения событие не считается
+    # отправленным и досылается позже
+    publisher-confirm-type: simple
+    # Событие отправляется в ответ на запрос пользователя: если шина недоступна, ждать её недолго
+    # (по умолчанию 60 с) — событие всё равно будет дослано позже
+    connection-timeout: 2s
     # Номер трассы передаётся вместе с сообщением: обработка события продолжает трассу запроса
     template:
       observation-enabled: true

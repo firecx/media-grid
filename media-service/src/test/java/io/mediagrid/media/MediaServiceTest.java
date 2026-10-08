@@ -19,6 +19,7 @@ import io.mediagrid.common.events.Events;
 import io.mediagrid.common.events.FileUploadedEvent;
 import io.mediagrid.common.events.MediaDeletedEvent;
 import io.mediagrid.common.events.ProcessingCompletedEvent;
+import io.mediagrid.media.events.MediaEventPublisher;
 import io.mediagrid.media.media.MediaService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -89,6 +90,9 @@ class MediaServiceTest {
 
     @Autowired
     MediaService mediaService;
+
+    @Autowired
+    MediaEventPublisher mediaEvents;
 
     final UUID alice = UUID.randomUUID();
     final UUID bob = UUID.randomUUID();
@@ -303,6 +307,25 @@ class MediaServiceTest {
         mvc.perform(get("/api/media/" + id).header(HttpHeaders.AUTHORIZATION, user(alice)))
                 .andExpect(status().isNotFound());
         assertThat(receiveDeleted()).isEqualTo(new MediaDeletedEvent(id));
+        // Шина подтвердила приём — отметка для досылки снята
+        await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(notices(id)).isZero());
+    }
+
+    @Test
+    void unconfirmedDeletionIsResent() {
+        // Удаление, событие о котором шина не подтвердила (например, была недоступна)
+        UUID id = UUID.randomUUID();
+        jdbc.update("INSERT INTO media.deletion_notices (media_id, created_at) VALUES (?, now() - interval '2 minutes')",
+                id);
+
+        mediaEvents.sendPending();
+
+        assertThat(receiveDeleted()).isEqualTo(new MediaDeletedEvent(id));
+        assertThat(notices(id)).isZero();
+    }
+
+    private int notices(UUID id) {
+        return jdbc.queryForObject("SELECT count(*) FROM media.deletion_notices WHERE media_id = ?", Integer.class, id);
     }
 
     @Test

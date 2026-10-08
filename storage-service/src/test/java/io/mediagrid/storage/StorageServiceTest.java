@@ -29,6 +29,7 @@ import io.mediagrid.common.events.FileUploadedEvent;
 import io.mediagrid.common.events.MediaDeletedEvent;
 import io.mediagrid.storage.config.StorageProperties;
 import io.mediagrid.storage.file.FileVariantRepository;
+import io.mediagrid.storage.events.FileAnnouncer;
 import io.mediagrid.storage.file.StoredFileRepository;
 import io.mediagrid.storage.file.VariantKind;
 import io.mediagrid.storage.link.LinkSigner;
@@ -42,6 +43,7 @@ import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -117,6 +119,12 @@ class StorageServiceTest {
     @Autowired
     StorageProperties storageProperties;
 
+    @Autowired
+    FileAnnouncer fileAnnouncer;
+
+    @Autowired
+    JdbcTemplate jdbc;
+
     final UUID alice = UUID.randomUUID();
     final UUID bob = UUID.randomUUID();
 
@@ -142,6 +150,29 @@ class StorageServiceTest {
         Object event = rabbit.receiveAndConvert(UPLOADED_PROBE, 10_000);
         assertThat(event).isEqualTo(new FileUploadedEvent(id, alice, "video/mp4", 1000));
         mvc.perform(get(link(alice, id, false))).andExpect(status().isOk()).andExpect(content().bytes(data));
+        // Шина подтвердила приём — досылать нечего
+        assertThat(announcedAt(id)).isNotNull();
+    }
+
+    @Test
+    void unconfirmedUploadEventIsResent() throws Exception {
+        byte[] data = bytes(100);
+        UUID id = pendingMedia(alice, data.length);
+        upload(alice, id, data, null).andExpect(status().isOk());
+        assertThat(rabbit.receiveAndConvert(UPLOADED_PROBE, 10_000)).isInstanceOf(FileUploadedEvent.class);
+        // Как если бы шина была недоступна в момент получения файла минуту назад
+        jdbc.update("UPDATE storage.stored_files SET announced_at = NULL, completed_at = now() - interval '2 minutes' "
+                + "WHERE media_id = ?", id);
+
+        fileAnnouncer.announcePending();
+
+        assertThat(rabbit.receiveAndConvert(UPLOADED_PROBE, 10_000))
+                .isEqualTo(new FileUploadedEvent(id, alice, "video/mp4", 100));
+        assertThat(announcedAt(id)).isNotNull();
+    }
+
+    private Object announcedAt(UUID id) {
+        return jdbc.queryForObject("SELECT announced_at FROM storage.stored_files WHERE media_id = ?", Object.class, id);
     }
 
     @Test

@@ -54,6 +54,9 @@ public class StoredFile implements Persistable<UUID> {
 
     private Instant completedAt;
 
+    /** Когда шина подтвердила приём события file.uploaded; пусто — событие ещё нужно отправить. */
+    private Instant announcedAt;
+
     /** Идентификатор задаётся снаружи, поэтому новизну записи определяет не он, а этот признак. */
     private transient boolean isNew;
 
