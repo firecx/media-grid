@@ -20,6 +20,13 @@ eureka:
   server:
     # Для одного узла: не ждать других узлов при запуске
     wait-time-in-ms-when-sync-empty: 0
+    # Изменения регистра (служба запустилась, остановилась) видны сразу, а не через 30 с: кэш ответов
+    # только для чтения нужен при сотнях клиентов, у нас их единицы
+    use-read-only-response-cache: false
+    # Отметки служб приходят раз в 10 с (config/application.yml) — по этому числу регистр считает,
+    # сколько отметок ожидать; пропавшие службы убираются проверкой раз в 10 с
+    expected-client-renewal-interval-seconds: 10
+    eviction-interval-timer-in-ms: 10000
 
 management:
   endpoints:

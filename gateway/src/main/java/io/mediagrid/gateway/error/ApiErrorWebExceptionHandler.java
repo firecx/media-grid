@@ -1,11 +1,15 @@
 package io.mediagrid.gateway.error;
 
 import java.net.ConnectException;
+import java.time.Duration;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.webflux.error.ErrorWebExceptionHandler;
+import org.springframework.cloud.gateway.support.ServiceUnavailableException;
 import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.security.authentication.AuthenticationServiceException;
@@ -25,9 +29,17 @@ public class ApiErrorWebExceptionHandler implements ErrorWebExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(ApiErrorWebExceptionHandler.class);
 
     private final ApiErrorWriter writer;
+    private final String retryAfterSeconds;
 
-    public ApiErrorWebExceptionHandler(ApiErrorWriter writer) {
+    /**
+     * @param breakerOpenTime сколько цепь остаётся разомкнутой (config/gateway.yml) — через столько клиенту
+     *                        имеет смысл повторить запрос
+     */
+    public ApiErrorWebExceptionHandler(ApiErrorWriter writer,
+            @Value("${resilience4j.circuitbreaker.configs.default.wait-duration-in-open-state:10s}")
+            Duration breakerOpenTime) {
         this.writer = writer;
+        this.retryAfterSeconds = Long.toString(breakerOpenTime.toSeconds());
     }
 
     @Override
@@ -37,6 +49,14 @@ public class ApiErrorWebExceptionHandler implements ErrorWebExceptionHandler {
             log.warn("Не удалось проверить токен: {}", error.getMessage());
             return writer.write(exchange, HttpStatus.SERVICE_UNAVAILABLE, "SERVICE_UNAVAILABLE",
                     "Проверка входа временно недоступна, повторите запрос позже");
+        }
+        if (error instanceof ServiceUnavailableException) {
+            // Цепь к службе разомкнута: запрос не отправлялся, служба недавно была недоступна
+            log.debug("{} {} -> 503: цепь разомкнута", exchange.getRequest().getMethod(),
+                    exchange.getRequest().getPath());
+            exchange.getResponse().getHeaders().set(HttpHeaders.RETRY_AFTER, retryAfterSeconds);
+            return writer.write(exchange, HttpStatus.SERVICE_UNAVAILABLE, "SERVICE_UNAVAILABLE",
+                    "Служба временно недоступна, повторите запрос позже");
         }
         HttpStatusCode status = error instanceof ResponseStatusException rse
                 ? rse.getStatusCode()
