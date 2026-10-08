@@ -78,6 +78,8 @@ sudo certbot renew --deploy-hook "docker compose -f /путь/к/mediagrid/docke
 
 ### Вход через VDS
 
+Пошаговая инструкция с нуля (Windows, свой сертификат) — [docs/deploy-vds.md](docs/deploy-vds.md).
+
 Система работает на своей машине (например, дома, без белого адреса), а VDS с белым адресом — только точка входа:
 
 ```
