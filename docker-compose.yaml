@@ -54,7 +54,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: discovery/Dockerfile
-    image: mediagrid/discovery:${MEDIAGRID_VERSION:-0.10.0}
+    image: mediagrid/discovery:${MEDIAGRID_VERSION:-0.11.0}
     restart: unless-stopped
     logging: *logging
     stop_grace_period: 30s
@@ -70,7 +70,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: config-server/Dockerfile
-    image: mediagrid/config-server:${MEDIAGRID_VERSION:-0.10.0}
+    image: mediagrid/config-server:${MEDIAGRID_VERSION:-0.11.0}
     restart: unless-stopped
     logging: *logging
     stop_grace_period: 30s
@@ -93,7 +93,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: gateway/Dockerfile
-    image: mediagrid/gateway:${MEDIAGRID_VERSION:-0.10.0}
+    image: mediagrid/gateway:${MEDIAGRID_VERSION:-0.11.0}
     restart: unless-stopped
     logging: *logging
     stop_grace_period: 30s
@@ -114,7 +114,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: auth-service/Dockerfile
-    image: mediagrid/auth-service:${MEDIAGRID_VERSION:-0.10.0}
+    image: mediagrid/auth-service:${MEDIAGRID_VERSION:-0.11.0}
     restart: unless-stopped
     logging: *logging
     stop_grace_period: 30s
@@ -144,7 +144,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: media-service/Dockerfile
-    image: mediagrid/media-service:${MEDIAGRID_VERSION:-0.10.0}
+    image: mediagrid/media-service:${MEDIAGRID_VERSION:-0.11.0}
     restart: unless-stopped
     logging: *logging
     stop_grace_period: 30s
@@ -174,7 +174,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: storage-service/Dockerfile
-    image: mediagrid/storage-service:${MEDIAGRID_VERSION:-0.10.0}
+    image: mediagrid/storage-service:${MEDIAGRID_VERSION:-0.11.0}
     restart: unless-stopped
     logging: *logging
     stop_grace_period: 30s
@@ -209,7 +209,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: processing-service/Dockerfile
-    image: mediagrid/processing-service:${MEDIAGRID_VERSION:-0.10.0}
+    image: mediagrid/processing-service:${MEDIAGRID_VERSION:-0.11.0}
     restart: unless-stopped
     logging: *logging
     stop_grace_period: 30s
@@ -244,7 +244,7 @@ services:
   web:
     build:
       context: ./web                      # интерфейсу не нужны модули Maven
-    image: mediagrid/web:${MEDIAGRID_VERSION:-0.10.0}
+    image: mediagrid/web:${MEDIAGRID_VERSION:-0.11.0}
     restart: unless-stopped
     logging: *logging
     stop_grace_period: 30s
@@ -277,9 +277,57 @@ services:
       retries: 5
       start_period: 5s
 
+  # Резервное копирование (ТЗ, пп. 4.1.4, 7): по расписанию база и файловое хранилище одним снимком
+  # restic — только изменившееся, с шифрованием; хранятся 7 ежедневных, 4 еженедельных, 6 ежемесячных.
+  # Копия вручную: docker compose exec backup mediagrid-backup; снимки: docker compose exec backup
+  # restic snapshots; восстановление — README, «Резервное копирование»
+  backup:
+    build:
+      context: ./infra/backup
+    image: mediagrid/backup:${MEDIAGRID_VERSION:-0.11.0}
+    restart: unless-stopped
+    logging: *logging
+    stop_grace_period: 30s
+    # crond не обрабатывает сигнал остановки сам; init передаёт его и забирает завершённые процессы
+    init: true
+    environment:
+      PGHOST: postgres
+      PGDATABASE: ${POSTGRES_DB}
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      # Пароль шифрования копий. Без него копии не прочитать — храните его копию отдельно от сервера
+      RESTIC_PASSWORD: ${BACKUP_PASSWORD:?Задайте BACKUP_PASSWORD в .env — пароль резервных копий}
+      # Куда класть копии: по умолчанию папка BACKUP_DIR (том /repo); другой сервер или объектное
+      # хранилище — адрес restic, например sftp:user@host:/srv/mediagrid или s3:https://host/bucket
+      RESTIC_REPOSITORY: ${BACKUP_REPOSITORY:-/repo}
+      AWS_ACCESS_KEY_ID: ${BACKUP_S3_ACCESS_KEY:-}
+      AWS_SECRET_ACCESS_KEY: ${BACKUP_S3_SECRET_KEY:-}
+      # Расписание в формате cron и часовой пояс: по умолчанию каждый день в 03:00 по Москве
+      BACKUP_SCHEDULE: ${BACKUP_SCHEDULE:-0 3 * * *}
+      TZ: ${BACKUP_TZ:-Europe/Moscow}
+      BACKUP_KEEP_DAILY: ${BACKUP_KEEP_DAILY:-7}
+      BACKUP_KEEP_WEEKLY: ${BACKUP_KEEP_WEEKLY:-4}
+      BACKUP_KEEP_MONTHLY: ${BACKUP_KEEP_MONTHLY:-6}
+    volumes:
+      # Файлы пользователей (запись нужна только при восстановлении)
+      - storage-data:/data/storage
+      # Хранилище копий. Лучше на другом диске: копия на том же диске не спасёт при его поломке
+      - ${BACKUP_DIR:-./backups}:/repo
+      # Когда была последняя удачная и неудачная копия — для проверки готовности
+      - backup-state:/var/lib/mediagrid-backup
+    depends_on:
+      postgres: { condition: service_healthy }
+    # «Нездорова», если последняя копия не удалась или удачной нет дольше суток
+    healthcheck:
+      test: ["CMD", "mediagrid-backup-health"]
+      interval: 5m
+      timeout: 10s
+      start_period: 30s
+
   # Службы добавляются сюда по мере готовности, по образцу auth-service.
 
 volumes:
   postgres-data:
   storage-data:
   processing-work:
+  backup-state:

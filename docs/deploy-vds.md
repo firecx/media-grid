@@ -180,6 +180,8 @@ copy .env.example .env
 | `ADMIN_PASSWORD` | его пароль, 8–64 символа |
 | `STORAGE_LINK_SECRET` | случайная строка не короче 32 символов |
 | `PROCESSING_CLIENT_SECRET` | ещё одна случайная строка не короче 32 символов |
+| `BACKUP_PASSWORD` | пароль шифрования резервных копий — случайная строка; сохраните копию вне компьютера |
+| `BACKUP_DIR` | папка для копий на другом диске, например `D:/mediagrid-backups` (по умолчанию `./backups`) |
 | `MEDIAGRID_HOSTNAME` | `media.example.org` (раскомментируйте строку) |
 
 И добавьте в конец строку — тогда команды `docker compose` не нужно дополнять `-f …` (разделитель в Windows — `;`):
@@ -347,11 +349,12 @@ git checkout v0.10.0
 
 Затем в `.env` поставьте `MEDIAGRID_VERSION` на ту же версию и выполните `docker compose up -d --build`. Что изменилось — в [CHANGELOG.md](../CHANGELOG.md).
 
-**Резервные копии.** Встроенного резервного копирования пока нет (запланировано). Данные хранятся в томах Docker: база — `postgres-data`, файлы — `storage-data`. Хотя бы копия базы (в Git Bash — Windows PowerShell 5 при `>` меняет кодировку файла):
+**Резервные копии** (с версии 0.11.0). Служба `backup` каждый день в 03:00 копирует базу и все файлы в папку `BACKUP_DIR`. Что нужно сделать:
+- задайте в `.env` пароль копий `BACKUP_PASSWORD` (случайная строка, как в шаге 6.2) и **сохраните его копию вне компьютера** — без него копии не прочитать;
+- укажите `BACKUP_DIR` на другом диске, например `BACKUP_DIR=D:/mediagrid-backups`. Копия на том же диске не спасёт при его поломке, а лучше всего — на другом устройстве или сервере;
+- проверьте, что копия делается: `docker compose exec backup mediagrid-backup`, затем `docker compose exec backup restic snapshots`.
 
-```
-docker compose exec -T postgres pg_dump -U mediagrid mediagrid > mediagrid-backup.sql
-```
+Если копия не удалась, `docker compose ps` покажет `backup` как `unhealthy`. Восстановление и хранение копий на другом сервере описаны в [README](../README.md#резервное-копирование).
 
 ## 11. Если что-то не работает
 
