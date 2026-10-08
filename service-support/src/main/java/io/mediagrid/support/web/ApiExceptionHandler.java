@@ -56,7 +56,6 @@ public class ApiExceptionHandler {
     }
 
     private static ResponseEntity<ApiError> error(HttpStatus status, String code, String message) {
-        // traceId появится вместе со сквозной трассировкой
-        return ResponseEntity.status(status).body(ApiError.of(code, message, null));
+        return ResponseEntity.status(status).body(ApiError.of(code, message, TraceIds.current()));
     }
 }

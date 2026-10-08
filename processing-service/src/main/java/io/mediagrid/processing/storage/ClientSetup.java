@@ -6,6 +6,7 @@ import java.time.Duration;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
 import io.mediagrid.processing.job.JobFailure;
+import org.springframework.boot.restclient.autoconfigure.RestClientBuilderConfigurer;
 import org.springframework.cloud.client.loadbalancer.LoadBalanced;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,8 +23,9 @@ public class ClientSetup {
      */
     @Bean(defaultCandidate = false)
     @LoadBalanced
-    RestClient.Builder serviceRestClientBuilder() {
-        return RestClient.builder();
+    RestClient.Builder serviceRestClientBuilder(RestClientBuilderConfigurer configurer) {
+        // Настройки Spring Boot, в том числе трассировка: номер трассы уходит в заголовке traceparent
+        return configurer.configure(RestClient.builder());
     }
 
     /**

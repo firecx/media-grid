@@ -1,0 +1,18 @@
+# Вход через VDS с белым адресом: VDS принимает 80 и 443 и пересылает соединения как есть через
+# туннель WireGuard на эту машину (настройки VDS — infra/vds/, порядок — README, «Вход через VDS»).
+# TLS расшифровывается только здесь, адрес посетителя приходит заголовком PROXY protocol.
+# Подключается явно, поверх основного файла:
+#   docker compose -f docker-compose.yaml -f docker-compose.vds.yaml up -d
+# Обычные 80 и 443 продолжают работать для входа с этой машины и из домашней сети.
+
+services:
+  web:
+    environment:
+      MEDIAGRID_PROXY_PROTOCOL: "on"
+      # С каких адресов верить заголовку PROXY protocol: туннель и внутренние адреса Docker
+      MEDIAGRID_REAL_IP_FROM: ${MEDIAGRID_REAL_IP_FROM:-10.0.0.0/8 172.16.0.0/12 192.168.0.0/16}
+    ports:
+      # Сюда пересылает VDS: 80 → 8080, 443 → 8443. Соединение без заголовка PROXY protocol
+      # на этих портах не принимается
+      - "${MEDIAGRID_PROXY_HTTP_PORT:-8080}:8080"
+      - "${MEDIAGRID_PROXY_HTTPS_PORT:-8443}:8443"

@@ -2,12 +2,15 @@
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
+  /** Номер трассы запроса: по нему администратор находит запрос в журналах всех служб. */
+  readonly traceId: string | null;
 
-  constructor(status: number, code: string, message: string) {
+  constructor(status: number, code: string, message: string, traceId: string | null = null) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.code = code;
+    this.traceId = traceId;
   }
 }
 
@@ -104,9 +107,9 @@ function send(path: string, { method = 'GET', json, query, anonymous, signal }: 
 
 export async function toError(response: Response): Promise<ApiError> {
   try {
-    const body = (await response.json()) as { code?: string; message?: string };
+    const body = (await response.json()) as { code?: string; message?: string; traceId?: string | null };
     return new ApiError(response.status, body.code ?? `HTTP_${response.status}`,
-      body.message ?? defaultMessage(response.status));
+      body.message ?? defaultMessage(response.status), body.traceId ?? null);
   } catch {
     return new ApiError(response.status, `HTTP_${response.status}`, defaultMessage(response.status));
   }
@@ -119,10 +122,15 @@ function defaultMessage(status: number): string {
   return `Ошибка ${status}`;
 }
 
-/** Текст ошибки для человека. */
+/**
+ * Текст ошибки для человека. При сбое на стороне сервера (5xx) — с кодом обращения: назвав его
+ * администратору, пользователь даёт найти этот запрос в журналах всех служб.
+ */
 export function errorMessage(error: unknown): string {
   if (error instanceof ApiError) {
-    return error.message;
+    return error.traceId && error.status >= 500
+      ? `${error.message} (код обращения: ${error.traceId})`
+      : error.message;
   }
   return error instanceof Error ? error.message : 'Неизвестная ошибка';
 }

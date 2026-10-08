@@ -7,7 +7,7 @@
     <parent>
         <groupId>io.mediagrid</groupId>
         <artifactId>mediagrid-parent</artifactId>
-        <version>0.8.0</version>
+        <version>0.9.0</version>
     </parent>
 
     <artifactId>service-support</artifactId>
@@ -32,6 +32,17 @@
         <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-commons</artifactId>
+        </dependency>
+        <!-- Сквозная трассировка (ТЗ, п. 4.1.1): номер запроса во всех службах и журналах, выгрузка по OTLP -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-opentelemetry</artifactId>
+        </dependency>
+        <!-- Настройка RestClient средствами Spring Boot (RestClientBuilderConfigurer): в том числе трассировка
+             вызовов других служб — номер трассы уходит в заголовке traceparent -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-restclient</artifactId>
         </dependency>
         <!-- Шина сообщений — только для служб, которые сами подключают spring-boot-starter-amqp -->
         <dependency>

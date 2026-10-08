@@ -15,6 +15,33 @@ management:
     web:
       exposure:
         include: health,info
+  # Сквозная трассировка (ТЗ, п. 4.1.1): номер трассы переходит от шлюза ко всем службам и через шину,
+  # попадает в каждую строку журнала и в поле traceId ошибок. Пишутся все запросы — для системы такого
+  # масштаба это недорого. Куда отправлять трассы, задаёт docker-compose.observability.yaml
+  # (MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT); без него трассы никуда не отправляются.
+  tracing:
+    sampling:
+      probability: 1.0
+  # Не в трассы: проверки доступа Spring Security (3–5 лишних участков на каждый запрос) и задачи
+  # по расписанию (раз в несколько секунд). Проверки готовности и обращения к регистру служб
+  # отсекает ServiceTrafficFilter.
+  observations:
+    enable:
+      spring.security: false
+      tasks.scheduled: false
+  # Метрики наружу не отправляются (стартер OpenTelemetry включает их выгрузку по умолчанию,
+  # и без сборщика каждая служба раз в минуту пишет в журнал ошибку)
+  otlp:
+    metrics:
+      export:
+        enabled: false
+
+# Журналы — JSON в стандартный вывод (формат ECS): сборщик журналов разбирает поля, номер трассы
+# (traceId) и участок (spanId) — в каждой строке
+logging:
+  structured:
+    format:
+      console: ecs
 
 # Проверка токенов доступа, выданных службой авторизации
 mediagrid:
@@ -30,8 +57,12 @@ spring:
     port: ${RABBITMQ_PORT:5672}
     username: ${RABBITMQ_USER:mediagrid}
     password: ${RABBITMQ_PASSWORD:}
+    # Номер трассы передаётся вместе с сообщением: обработка события продолжает трассу запроса
+    template:
+      observation-enabled: true
     listener:
       simple:
+        observation-enabled: true
         # Сообщение, обработка которого упала, повторяется 3 раза с паузой, затем уходит в очередь .dlq
         retry:
           enabled: true

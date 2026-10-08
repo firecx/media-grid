@@ -15,6 +15,8 @@ import java.util.stream.Stream;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.mediagrid.processing.config.ProcessingProperties;
 import io.mediagrid.processing.media.MediaProcessor;
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,6 +42,7 @@ public class JobRunner {
     private final JobService jobs;
     private final MediaProcessor processor;
     private final JobNotifier notifier;
+    private final JobTracing tracing;
     private final CircuitBreaker storageBreaker;
     private final ProcessingProperties properties;
     private final ExecutorService executor;
@@ -48,8 +51,10 @@ public class JobRunner {
     private volatile boolean stopping;
 
     public JobRunner(JobService jobs, MediaProcessor processor, JobNotifier notifier,
-                     @Qualifier("storageBreaker") CircuitBreaker storageBreaker, ProcessingProperties properties) {
+                     @Qualifier("storageBreaker") CircuitBreaker storageBreaker, ProcessingProperties properties,
+                     JobTracing tracing) {
         this.jobs = jobs;
+        this.tracing = tracing;
         this.processor = processor;
         this.notifier = notifier;
         this.storageBreaker = storageBreaker;
@@ -96,21 +101,31 @@ public class JobRunner {
         }
     }
 
+    /**
+     * Вся работа над задачей — в участке трассы, продолжающем трассу загрузки файла: журналы обработки,
+     * обращения к службе хранения и отправка итога несут тот же номер трассы.
+     */
     private void run(JobTicket ticket, JobContext context) {
         UUID id = ticket.mediaId();
-        log.info("Обработка файла {} ({}), попытка {}", id, ticket.contentType(), ticket.attempt());
-        try {
-            ProcessingResult result = processor.process(ticket, context);
-            if (!context.isCancelled()) {
-                jobs.succeed(id, result);
+        Span span = tracing.startJobSpan(ticket);
+        try (Tracer.SpanInScope scope = tracing.inScope(span)) {
+            log.info("Обработка файла {} ({}), попытка {}", id, ticket.contentType(), ticket.attempt());
+            try {
+                ProcessingResult result = processor.process(ticket, context);
+                if (!context.isCancelled()) {
+                    jobs.succeed(id, result);
+                }
+            } catch (RuntimeException e) {
+                span.error(e);
+                settle(id, context, e);
+            } finally {
+                active.remove(id);
+                freeWorkers.release();
             }
-        } catch (RuntimeException e) {
-            settle(id, context, e);
+            notifier.sendPending();
         } finally {
-            active.remove(id);
-            freeWorkers.release();
+            span.end();
         }
-        notifier.sendPending();
         dispatch();
     }
 

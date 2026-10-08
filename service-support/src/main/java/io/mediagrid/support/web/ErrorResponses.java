@@ -19,7 +19,6 @@ public final class ErrorResponses {
         response.setStatus(status.value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");
-        // traceId появится вместе со сквозной трассировкой
-        json.writeValue(response.getOutputStream(), ApiError.of(code, message, null));
+        json.writeValue(response.getOutputStream(), ApiError.of(code, message, TraceIds.current()));
     }
 }

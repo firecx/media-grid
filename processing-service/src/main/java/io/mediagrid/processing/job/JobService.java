@@ -27,10 +27,12 @@ public class JobService {
 
     private final JobRepository jobs;
     private final ProcessingProperties properties;
+    private final JobTracing tracing;
 
-    public JobService(JobRepository jobs, ProcessingProperties properties) {
+    public JobService(JobRepository jobs, ProcessingProperties properties, JobTracing tracing) {
         this.jobs = jobs;
         this.properties = properties;
+        this.tracing = tracing;
     }
 
     /**
@@ -49,7 +51,8 @@ public class JobService {
             }
             return false;
         }
-        jobs.save(new Job(event.mediaId(), event.ownerId(), event.contentType(), event.sizeBytes()));
+        jobs.save(new Job(event.mediaId(), event.ownerId(), event.contentType(), event.sizeBytes(),
+                tracing.currentTraceParent()));
         log.info("Файл {} ({}, {} байт) поставлен в очередь обработки", event.mediaId(), event.contentType(),
                 event.sizeBytes());
         return true;

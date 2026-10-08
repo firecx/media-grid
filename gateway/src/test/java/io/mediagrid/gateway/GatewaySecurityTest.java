@@ -74,7 +74,10 @@ class GatewaySecurityTest {
         client.get().uri("/api/media/1").exchange()
                 .expectStatus().isUnauthorized()
                 .expectBody().jsonPath("$.code").isEqualTo("UNAUTHORIZED")
-                .jsonPath("$.timestamp").isNotEmpty();
+                .jsonPath("$.timestamp").isNotEmpty()
+                // Номер трассы запроса — по нему ошибку находят в журналах
+                .jsonPath("$.traceId").value(String.class,
+                        traceId -> org.assertj.core.api.Assertions.assertThat(traceId).matches("[0-9a-f]{32}"));
     }
 
     @Test

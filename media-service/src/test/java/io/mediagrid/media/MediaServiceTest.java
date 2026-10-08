@@ -120,7 +120,9 @@ class MediaServiceTest {
         // Пока файл не загружен, даже общедоступная запись чужим не видна
         mvc.perform(get("/api/media/" + mediaId).header(HttpHeaders.AUTHORIZATION, user(bob)))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"))
+                // Номер трассы запроса — по нему ошибку находят в журналах
+                .andExpect(jsonPath("$.traceId").value(org.hamcrest.Matchers.matchesPattern("[0-9a-f]{32}")));
     }
 
     @Test

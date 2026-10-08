@@ -2,6 +2,7 @@ package io.mediagrid.support;
 
 import io.mediagrid.support.security.SecurityProperties;
 import io.mediagrid.support.web.ApiExceptionHandler;
+import io.mediagrid.support.web.ServiceTrafficFilter;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.converter.JacksonJsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
@@ -43,6 +44,13 @@ public class ServiceSupportAutoConfiguration {
                 .build();
         decoder.setJwtValidator(JwtValidators.createDefaultWithIssuer(properties.issuer()));
         return decoder;
+    }
+
+    /** Проверки готовности и обращения к регистру служб — не в трассы. */
+    @Bean
+    @ConditionalOnMissingBean
+    ServiceTrafficFilter serviceTrafficFilter() {
+        return new ServiceTrafficFilter();
     }
 
     /** Только для запроса ключей; не вытесняет стандартные клиенты, которыми пользуется, например, Eureka. */

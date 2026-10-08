@@ -7,7 +7,7 @@
     <parent>
         <groupId>io.mediagrid</groupId>
         <artifactId>mediagrid-parent</artifactId>
-        <version>0.8.0</version>
+        <version>0.9.0</version>
     </parent>
 
     <artifactId>storage-service</artifactId>
@@ -73,6 +73,11 @@
         <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-circuitbreaker-resilience4j</artifactId>
+        </dependency>
+        <!-- Перенос контекста трассировки в поток размыкателя -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>context-propagation</artifactId>
         </dependency>
 
         <!-- Тесты на настоящих PostgreSQL и RabbitMQ в контейнерах -->

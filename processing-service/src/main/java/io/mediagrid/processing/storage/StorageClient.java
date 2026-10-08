@@ -14,6 +14,7 @@ import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.mediagrid.processing.config.ProcessingProperties;
 import io.mediagrid.processing.job.JobFailure;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.restclient.autoconfigure.RestClientBuilderConfigurer;
 import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.client.loadbalancer.LoadBalancerClient;
 import org.springframework.core.io.FileSystemResource;
@@ -44,8 +45,11 @@ public class StorageClient {
     private final CircuitBreaker breaker;
 
     public StorageClient(LoadBalancerClient loadBalancer, ServiceTokens tokens,
-                         @Qualifier("storageBreaker") CircuitBreaker breaker, ProcessingProperties properties) {
-        this.rest = RestClient.builder()
+                         @Qualifier("storageBreaker") CircuitBreaker breaker, ProcessingProperties properties,
+                         RestClientBuilderConfigurer configurer) {
+        // Настройки Spring Boot, в том числе трассировка (заголовок traceparent). Трассировка в RestClient
+        // устроена не перехватчиком, поэтому тело запроса по-прежнему не собирается в памяти
+        this.rest = configurer.configure(RestClient.builder())
                 .requestFactory(ClientSetup.requestFactory(Duration.ofSeconds(5), properties.transferTimeout()))
                 .build();
         this.loadBalancer = loadBalancer;

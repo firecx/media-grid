@@ -1,0 +1,60 @@
+# Сквозная трассировка и централизованные журналы (ТЗ, п. 4.1.1). Подключается поверх основного файла:
+#   docker compose -f docker-compose.yaml -f docker-compose.observability.yaml up -d
+# Без этого файла номер трассы всё равно есть в журналах служб (docker logs) и в поле traceId ошибок,
+# но журналы и трассы нигде не собираются. Память: OpenObserve ~0,3–0,5 ГБ, Fluent Bit ~20–40 МБ.
+#
+# Интерфейс OpenObserve — только с самого сервера: http://localhost:5080 (вход OBSERVE_ADMIN_EMAIL и
+# OBSERVE_ADMIN_PASSWORD). С другой машины — через SSH-туннель: ssh -L 5080:localhost:5080 <сервер>.
+
+x-otlp: &otlp
+  # Трассы служб — в сборщик (внутри сети, без пароля); он передаёт их в OpenObserve
+  MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT: http://fluent-bit:4318/v1/traces
+
+services:
+  openobserve:
+    image: openobserve/openobserve:v1.0.4
+    restart: unless-stopped
+    environment:
+      ZO_ROOT_USER_EMAIL: ${OBSERVE_ADMIN_EMAIL:?задайте OBSERVE_ADMIN_EMAIL в .env}
+      ZO_ROOT_USER_PASSWORD: ${OBSERVE_ADMIN_PASSWORD:?задайте OBSERVE_ADMIN_PASSWORD в .env}
+      ZO_DATA_DIR: /data
+      # Сколько дней хранить журналы и трассы
+      ZO_COMPACT_DATA_RETENTION_DAYS: ${OBSERVE_RETENTION_DAYS:-30}
+    volumes:
+      - observe-data:/data
+    ports:
+      # Только для этой машины; снаружи — через SSH-туннель
+      - "${MEDIAGRID_OBSERVE_PORT:-127.0.0.1:5080}:5080"
+    # Проверки готовности нет: в образе нет ни оболочки, ни curl. Сборщик повторяет отправку, пока
+    # хранилище не поднимется, — ему достаточно запуска контейнера
+
+  fluent-bit:
+    image: fluent/fluent-bit:5.1.3
+    restart: unless-stopped
+    environment:
+      OBSERVE_HOST: openobserve
+      OBSERVE_ADMIN_EMAIL: ${OBSERVE_ADMIN_EMAIL}
+      OBSERVE_ADMIN_PASSWORD: ${OBSERVE_ADMIN_PASSWORD}
+    volumes:
+      - ./infra/fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
+      # Файлы журналов контейнеров (только чтение)
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      # Место чтения и буфер на время недоступности хранилища
+      - fluent-bit-state:/fluent-bit/state
+    depends_on:
+      openobserve: { condition: service_started }
+
+  gateway:
+    environment: *otlp
+  auth-service:
+    environment: *otlp
+  media-service:
+    environment: *otlp
+  storage-service:
+    environment: *otlp
+  processing-service:
+    environment: *otlp
+
+volumes:
+  observe-data:
+  fluent-bit-state:

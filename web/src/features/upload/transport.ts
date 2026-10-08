@@ -64,14 +64,16 @@ function put(mediaId: string, chunk: Blob, contentRange: string, onProgress: (se
       }
       let code = `HTTP_${xhr.status}`;
       let message = xhr.status >= 500 ? 'Служба временно недоступна' : `Ошибка ${xhr.status}`;
+      let traceId: string | null = null;
       try {
-        const body = JSON.parse(xhr.responseText) as { code?: string; message?: string };
+        const body = JSON.parse(xhr.responseText) as { code?: string; message?: string; traceId?: string | null };
         code = body.code ?? code;
         message = body.message ?? message;
+        traceId = body.traceId ?? null;
       } catch {
         // тело не JSON (например, ответ nginx)
       }
-      reject(new ApiError(xhr.status, code, message));
+      reject(new ApiError(xhr.status, code, message, traceId));
     };
     xhr.onerror = () => reject(new ApiError(0, 'NETWORK_ERROR', 'Связь прервалась'));
     xhr.onabort = () => reject(new DOMException('Отменено', 'AbortError'));

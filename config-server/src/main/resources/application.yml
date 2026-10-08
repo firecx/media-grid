@@ -30,3 +30,9 @@ management:
     web:
       exposure:
         include: health,info
+
+# Журналы — JSON (формат ECS), как у остальных служб: их разбирает сборщик журналов
+logging:
+  structured:
+    format:
+      console: ecs

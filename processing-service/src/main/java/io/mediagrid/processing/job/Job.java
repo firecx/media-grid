@@ -74,7 +74,12 @@ public class Job implements Persistable<UUID> {
     protected Job() {
     }
 
-    public Job(UUID mediaId, UUID ownerId, String contentType, long sizeBytes) {
+    /** Трасса запроса, в котором загрузили файл (W3C traceparent); null — без трассы. */
+    @Column(updatable = false)
+    private String traceParent;
+
+    public Job(UUID mediaId, UUID ownerId, String contentType, long sizeBytes, String traceParent) {
+        this.traceParent = traceParent;
         this.mediaId = mediaId;
         this.ownerId = ownerId;
         this.contentType = contentType;
@@ -252,5 +257,9 @@ public class Job implements Persistable<UUID> {
 
     public Instant getFinishedAt() {
         return finishedAt;
+    }
+
+    public String getTraceParent() {
+        return traceParent;
     }
 }
