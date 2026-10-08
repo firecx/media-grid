@@ -27,13 +27,37 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - postgres-data:/var/lib/postgresql
-      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     # Порт наружу не публикуется; для отладки — docker-compose.debug.yaml
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 3s
       retries: 10
+
+
+  # Учётные записи служб в базе (ТЗ, п. 4.3.1): у каждой службы своя роль mediagrid_<схема> — владелец
+  # только своей схемы. Выполняется при каждом запуске системы и завершается; прикладные службы ждут
+  # её успешного окончания. Переводит на отдельные учётные записи и существующую базу, и базу,
+  # восстановленную из резервной копии (поэтому после восстановления — docker compose up -d)
+  db-setup:
+    image: postgres:18.6-alpine3.24
+    restart: "no"
+    logging: *logging
+    entrypoint: ["sh", "/setup/setup.sh"]
+    environment:
+      PGHOST: postgres
+      PGDATABASE: ${POSTGRES_DB}
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      # Пароли учётных записей служб: случайные строки не короче 16 символов
+      AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD:?Задайте AUTH_DB_PASSWORD в .env}
+      MEDIA_DB_PASSWORD: ${MEDIA_DB_PASSWORD:?Задайте MEDIA_DB_PASSWORD в .env}
+      STORAGE_DB_PASSWORD: ${STORAGE_DB_PASSWORD:?Задайте STORAGE_DB_PASSWORD в .env}
+      PROCESSING_DB_PASSWORD: ${PROCESSING_DB_PASSWORD:?Задайте PROCESSING_DB_PASSWORD в .env}
+    volumes:
+      - ./infra/postgres:/setup:ro
+    depends_on:
+      postgres: { condition: service_healthy }
 
   rabbitmq:
     image: rabbitmq:4-management
@@ -54,7 +78,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: discovery/Dockerfile
-    image: mediagrid/discovery:${MEDIAGRID_VERSION:-0.11.0}
+    image: mediagrid/discovery:${MEDIAGRID_VERSION:-0.12.0}
     restart: unless-stopped
     logging: *logging
     stop_grace_period: 30s
@@ -70,7 +94,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: config-server/Dockerfile
-    image: mediagrid/config-server:${MEDIAGRID_VERSION:-0.11.0}
+    image: mediagrid/config-server:${MEDIAGRID_VERSION:-0.12.0}
     restart: unless-stopped
     logging: *logging
     stop_grace_period: 30s
@@ -93,7 +117,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: gateway/Dockerfile
-    image: mediagrid/gateway:${MEDIAGRID_VERSION:-0.11.0}
+    image: mediagrid/gateway:${MEDIAGRID_VERSION:-0.12.0}
     restart: unless-stopped
     logging: *logging
     stop_grace_period: 30s
@@ -114,7 +138,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: auth-service/Dockerfile
-    image: mediagrid/auth-service:${MEDIAGRID_VERSION:-0.11.0}
+    image: mediagrid/auth-service:${MEDIAGRID_VERSION:-0.12.0}
     restart: unless-stopped
     logging: *logging
     stop_grace_period: 30s
@@ -123,15 +147,15 @@ services:
       EUREKA_URL: http://discovery:8761/eureka
       POSTGRES_HOST: postgres
       POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # Своя учётная запись в базе (mediagrid_auth), а не администратора базы
+      DB_PASSWORD: ${AUTH_DB_PASSWORD:?Задайте AUTH_DB_PASSWORD в .env}
       ADMIN_EMAIL: ${ADMIN_EMAIL}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       # Секреты служб, которым выдаётся токен службы
       PROCESSING_CLIENT_SECRET: ${PROCESSING_CLIENT_SECRET}
     # Порт наружу не публикуется: запросы приходят только через шлюз
     depends_on:
-      postgres: { condition: service_healthy }
+      db-setup: { condition: service_completed_successfully }
       config-server: { condition: service_healthy }
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8100/actuator/health | grep -q UP"]
@@ -144,7 +168,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: media-service/Dockerfile
-    image: mediagrid/media-service:${MEDIAGRID_VERSION:-0.11.0}
+    image: mediagrid/media-service:${MEDIAGRID_VERSION:-0.12.0}
     restart: unless-stopped
     logging: *logging
     stop_grace_period: 30s
@@ -153,14 +177,14 @@ services:
       EUREKA_URL: http://discovery:8761/eureka
       POSTGRES_HOST: postgres
       POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # Своя учётная запись в базе (mediagrid_media), а не администратора базы
+      DB_PASSWORD: ${MEDIA_DB_PASSWORD:?Задайте MEDIA_DB_PASSWORD в .env}
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_USER: ${RABBITMQ_USER}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
     # Порт наружу не публикуется: запросы приходят только через шлюз
     depends_on:
-      postgres: { condition: service_healthy }
+      db-setup: { condition: service_completed_successfully }
       rabbitmq: { condition: service_healthy }
       config-server: { condition: service_healthy }
     healthcheck:
@@ -174,7 +198,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: storage-service/Dockerfile
-    image: mediagrid/storage-service:${MEDIAGRID_VERSION:-0.11.0}
+    image: mediagrid/storage-service:${MEDIAGRID_VERSION:-0.12.0}
     restart: unless-stopped
     logging: *logging
     stop_grace_period: 30s
@@ -183,8 +207,8 @@ services:
       EUREKA_URL: http://discovery:8761/eureka
       POSTGRES_HOST: postgres
       POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # Своя учётная запись в базе (mediagrid_storage), а не администратора базы
+      DB_PASSWORD: ${STORAGE_DB_PASSWORD:?Задайте STORAGE_DB_PASSWORD в .env}
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_USER: ${RABBITMQ_USER}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
@@ -195,7 +219,7 @@ services:
       - storage-data:/data/storage
     # Порт наружу не публикуется: запросы приходят только через шлюз
     depends_on:
-      postgres: { condition: service_healthy }
+      db-setup: { condition: service_completed_successfully }
       rabbitmq: { condition: service_healthy }
       config-server: { condition: service_healthy }
     healthcheck:
@@ -209,7 +233,7 @@ services:
     build:
       context: .                          # корень репозитория: нужен модуль common
       dockerfile: processing-service/Dockerfile
-    image: mediagrid/processing-service:${MEDIAGRID_VERSION:-0.11.0}
+    image: mediagrid/processing-service:${MEDIAGRID_VERSION:-0.12.0}
     restart: unless-stopped
     logging: *logging
     stop_grace_period: 30s
@@ -218,8 +242,8 @@ services:
       EUREKA_URL: http://discovery:8761/eureka
       POSTGRES_HOST: postgres
       POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # Своя учётная запись в базе (mediagrid_processing), а не администратора базы
+      DB_PASSWORD: ${PROCESSING_DB_PASSWORD:?Задайте PROCESSING_DB_PASSWORD в .env}
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_USER: ${RABBITMQ_USER}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
@@ -231,7 +255,7 @@ services:
     # Порт наружу не публикуется: ход обработки запрашивается только через шлюз.
     # Остановка службы не мешает загрузке и просмотру (ТЗ, п. 4.1.4): задачи ждут в очереди
     depends_on:
-      postgres: { condition: service_healthy }
+      db-setup: { condition: service_completed_successfully }
       rabbitmq: { condition: service_healthy }
       config-server: { condition: service_healthy }
     healthcheck:
@@ -244,7 +268,7 @@ services:
   web:
     build:
       context: ./web                      # интерфейсу не нужны модули Maven
-    image: mediagrid/web:${MEDIAGRID_VERSION:-0.11.0}
+    image: mediagrid/web:${MEDIAGRID_VERSION:-0.12.0}
     restart: unless-stopped
     logging: *logging
     stop_grace_period: 30s
@@ -284,7 +308,7 @@ services:
   backup:
     build:
       context: ./infra/backup
-    image: mediagrid/backup:${MEDIAGRID_VERSION:-0.11.0}
+    image: mediagrid/backup:${MEDIAGRID_VERSION:-0.12.0}
     restart: unless-stopped
     logging: *logging
     stop_grace_period: 30s

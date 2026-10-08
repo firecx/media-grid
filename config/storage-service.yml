@@ -3,8 +3,9 @@
 spring:
   datasource:
     url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:mediagrid}
-    username: ${POSTGRES_USER:mediagrid}
-    password: ${POSTGRES_PASSWORD}
+    # Своя учётная запись службы (создаёт db-setup, infra/postgres/setup.sh), а не администратора базы
+    username: ${DB_USER:mediagrid_storage}
+    password: ${DB_PASSWORD}
     hikari:
       # Схема службы для всех запросов, в том числе написанных на чистом SQL
       schema: storage

@@ -15,6 +15,6 @@ eureka:
   client:
     enabled: false
 
-POSTGRES_PASSWORD: test
+DB_PASSWORD: test
 STORAGE_ROOT: target/test-storage
 STORAGE_LINK_SECRET: test-secret-for-signing-links-0123456789

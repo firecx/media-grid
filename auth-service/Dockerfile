@@ -11,5 +11,7 @@ RUN --mount=type=cache,target=/root/.m2 \
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 COPY --from=build /src/auth-service/target/auth-service.jar app.jar
+# Восстановление пароля администратора: docker compose exec auth-service reset-admin-password <почта>
+COPY --chmod=755 auth-service/reset-admin-password.sh /usr/local/bin/reset-admin-password
 EXPOSE 8100
 ENTRYPOINT ["java", "-jar", "app.jar"]

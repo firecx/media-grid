@@ -15,7 +15,7 @@ eureka:
   client:
     enabled: false
 
-POSTGRES_PASSWORD: test
+DB_PASSWORD: test
 ADMIN_EMAIL: admin@test.local
 ADMIN_PASSWORD: admin-password
 PROCESSING_CLIENT_SECRET: test-processing-secret-0123456789abcdef

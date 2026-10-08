@@ -47,7 +47,14 @@ public class SecurityConfig {
 
     @Bean
     PasswordEncoder passwordEncoder() {
-        // Сейчас BCrypt; отпечаток хранит название алгоритма, поэтому его можно сменить без сброса паролей
+        return createPasswordEncoder();
+    }
+
+    /**
+     * Хеширование паролей — одно для службы и для восстановления пароля администратора (AdminPasswordReset).
+     * Сейчас BCrypt; отпечаток хранит название алгоритма, поэтому его можно сменить без сброса паролей.
+     */
+    public static PasswordEncoder createPasswordEncoder() {
         return PasswordEncoderFactories.createDelegatingPasswordEncoder();
     }
 

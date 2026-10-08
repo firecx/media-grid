@@ -1,6 +1,7 @@
 package io.mediagrid.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -11,10 +12,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.nio.charset.StandardCharsets;
+import java.sql.Connection;
 import java.util.Base64;
 import java.util.UUID;
 
+import javax.sql.DataSource;
+
 import com.jayway.jsonpath.JsonPath;
+import io.mediagrid.auth.user.AdminPasswordReset;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,6 +31,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.web.servlet.MockMvc;
@@ -58,6 +64,12 @@ class AuthFlowTest {
 
     @Autowired
     JwtDecoder jwtDecoder;
+
+    @Autowired
+    DataSource dataSource;
+
+    @Autowired
+    PasswordEncoder passwordEncoder;
 
     @Test
     void adminCreatedFromSettingsCanLogIn() throws Exception {
@@ -247,6 +259,39 @@ class AuthFlowTest {
         }
         mvc.perform(post("/internal/auth/token"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void forgottenAdminPasswordIsResetOnServerAndSessionsEnd() throws Exception {
+        String email = createUser("ADMIN");
+        Cookie session = login(email, "user-password").andReturn().getResponse().getCookie(COOKIE);
+
+        try (Connection connection = dataSource.getConnection()) {
+            assertThat(AdminPasswordReset.reset(connection, email.toUpperCase(), "new-admin-password", passwordEncoder))
+                    .isEqualTo(email);
+        }
+
+        login(email, "user-password").andExpect(status().isUnauthorized());
+        login(email, "new-admin-password").andExpect(status().isOk());
+        // Сеансы, открытые со старым паролем, завершены
+        mvc.perform(post("/api/auth/refresh").cookie(session)).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void passwordResetOnServerIsOnlyForAdmins() throws Exception {
+        String user = createUser("USER");
+        try (Connection connection = dataSource.getConnection()) {
+            assertThatThrownBy(() -> AdminPasswordReset.reset(connection, user, "new-user-password", passwordEncoder))
+                    .hasMessageContaining("не администратор");
+            assertThatThrownBy(() -> AdminPasswordReset.reset(connection, "nobody@test.local", "new-password-1",
+                    passwordEncoder))
+                    .hasMessageContaining("учётной записи nobody@test.local нет");
+            assertThatThrownBy(() -> AdminPasswordReset.reset(connection, "admin@test.local", "short", passwordEncoder))
+                    .hasMessageContaining("от 8 до 64");
+        }
+        // Отказ ничего не изменил
+        login(user, "user-password").andExpect(status().isOk());
+        login("admin@test.local", "admin-password").andExpect(status().isOk());
     }
 
     private static String basic(String name, String secret) {

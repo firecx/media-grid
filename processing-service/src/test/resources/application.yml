@@ -15,6 +15,6 @@ eureka:
   client:
     enabled: false
 
-POSTGRES_PASSWORD: test
+DB_PASSWORD: test
 PROCESSING_WORK_DIR: target/test-work
 PROCESSING_CLIENT_SECRET: test-processing-secret-0123456789abcdef
